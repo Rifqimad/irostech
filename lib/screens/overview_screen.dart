@@ -38,50 +38,29 @@ class _OverviewScreenState extends State<OverviewScreen> {
   List<LatLng> dronePath = [];
   int currentPathIndex = 0;
   Timer? _pathTimer;
-  LatLng dronePosition = const LatLng(51.505, -0.09);  // Detected hazardous substances
-  final List<DetectedSubstance> detectedSubstances = [
-    DetectedSubstance(name: 'Chlorine', type: 'chemical', lat: 51.508, lng: -0.092, severity: 'high', time: '10:23'),
-    DetectedSubstance(name: 'Cesium-137', type: 'radiological', lat: 51.502, lng: -0.088, severity: 'critical', time: '09:45'),
-    DetectedSubstance(name: 'VX', type: 'chemical', lat: 51.507, lng: -0.095, severity: 'critical', time: '11:12'),
-    DetectedSubstance(name: 'Anthrax', type: 'biological', lat: 51.504, lng: -0.090, severity: 'high', time: '08:30'),
-  ];
+  LatLng dronePosition = const LatLng(51.505, -0.09);
 
-  // Simulated hazardous zones for drone detection
-  // Zones positioned near Bandung, Indonesia (approx: -6.9, 107.6)
-  final List<HazardousZone> hazardousZones = [
-    HazardousZone(
-      name: 'Chemical Leak Zone A',
-      center: const LatLng(-6.9215, 107.6085),
-      radiusKm: 0.3,
-      severity: 'critical',
-      substanceType: 'chemical',
-      detected: false,
-    ),
-    HazardousZone(
-      name: 'Radiation Hotspot B',
-      center: const LatLng(-6.9205, 107.6065),
-      radiusKm: 0.25,
-      severity: 'high',
-      substanceType: 'radiological',
-      detected: false,
-    ),
-    HazardousZone(
-      name: 'Biological Contamination C',
-      center: const LatLng(-6.9225, 107.6105),
-      radiusKm: 0.35,
-      severity: 'medium',
-      substanceType: 'biological',
-      detected: false,
-    ),
-    HazardousZone(
-      name: 'Nuclear Residue D',
-      center: const LatLng(-6.9195, 107.6075),
-      radiusKm: 0.2,
-      severity: 'low',
-      substanceType: 'nuclear',
-      detected: false,
-    ),
-  ];
+  // Second drone path variables
+  List<LatLng> drone2Path = [];
+  int drone2PathIndex = 0;
+  LatLng drone2Position = const LatLng(51.505, -0.09);
+
+  // Additional drones for swarm mode
+  List<LatLng> drone3Path = [];
+  int drone3PathIndex = 0;
+  LatLng drone3Position = const LatLng(51.505, -0.09);
+
+  List<LatLng> drone4Path = [];
+  int drone4PathIndex = 0;
+  LatLng drone4Position = const LatLng(51.505, -0.09);
+
+  List<LatLng> drone5Path = [];
+  int drone5PathIndex = 0;
+  LatLng drone5Position = const LatLng(51.505, -0.09);
+  final List<DetectedSubstance> detectedSubstances = [];
+
+  // Hazardous zone around user's location (red zone)
+  HazardousZone? userLocationZone;
 
   // Recent activity log
   final List<ActivityLog> activityLog = [];
@@ -95,66 +74,129 @@ class _OverviewScreenState extends State<OverviewScreen> {
       isMissionPaused = false;
       missionStatus = 'ACTIVE';
       missionSeconds = 0;
-      dronePath = _generatePath(selectedMovement, center);
-      currentPathIndex = 0;
-      dronePosition = dronePath.isNotEmpty ? dronePath[0] : center;
+
+      // Generate paths based on operation mode
+      if (selectedOpMode == 'Advance UAV Swarm Operation') {
+        // Swarm mode: 5 drones
+        dronePath = _generatePath(selectedMovement, dronePosition, offsetIndex: 0);
+        currentPathIndex = 0;
+
+        drone2Path = _generatePath(selectedMovement, drone2Position, offsetIndex: 1);
+        drone2PathIndex = 0;
+
+        drone3Path = _generatePath(selectedMovement, drone3Position, offsetIndex: 2);
+        drone3PathIndex = 0;
+
+        drone4Path = _generatePath(selectedMovement, drone4Position, offsetIndex: 3);
+        drone4PathIndex = 0;
+
+        drone5Path = _generatePath(selectedMovement, drone5Position, offsetIndex: 4);
+        drone5PathIndex = 0;
+      } else if (selectedOpMode == 'Multi-Drone Surveillance' || selectedOpMode == 'Advanced Mixed Operations') {
+        // 2 drones mode
+        dronePath = _generatePath(selectedMovement, dronePosition, offsetIndex: 0);
+        currentPathIndex = 0;
+
+        drone2Path = _generatePath(selectedMovement, drone2Position, offsetIndex: 1);
+        drone2PathIndex = 0;
+      } else {
+        // Manual mode: only first drone
+        dronePath = _generatePath(selectedMovement, dronePosition, offsetIndex: 0);
+        currentPathIndex = 0;
+      }
     });
     _startTimer();
     _startPathAnimation();
   }
 
-  List<LatLng> _generatePath(String pattern, LatLng center) {
+  List<LatLng> _generatePath(String pattern, LatLng center, {int offsetIndex = 0}) {
     List<LatLng> path = [];
     final double latStep = 0.001;
     final double lngStep = 0.001;
 
+    // Offset based on drone index (creates different paths for each drone)
+    final double offsetLat = offsetIndex * 0.002;
+    final double offsetLng = offsetIndex * 0.002;
+
     switch (pattern) {
       case 'Grid':
         // Grid pattern - back and forth
-        for (int i = 0; i < 5; i++) {
-          path.add(LatLng(center.latitude + i * latStep, center.longitude));
-          path.add(LatLng(center.latitude + i * latStep, center.longitude + 4 * lngStep));
-          if (i < 4) {
-            path.add(LatLng(center.latitude + (i + 1) * latStep, center.longitude + 4 * lngStep));
-            path.add(LatLng(center.latitude + (i + 1) * latStep, center.longitude));
+        if (offsetIndex % 2 == 1) {
+          // Odd index drones - different grid pattern (vertical instead of horizontal)
+          for (int i = 0; i < 5; i++) {
+            path.add(LatLng(center.latitude + offsetLat, center.longitude + i * lngStep + offsetLng));
+            path.add(LatLng(center.latitude + 4 * latStep + offsetLat, center.longitude + i * lngStep + offsetLng));
+            if (i < 4) {
+              path.add(LatLng(center.latitude + 4 * latStep + offsetLat, center.longitude + (i + 1) * lngStep + offsetLng));
+              path.add(LatLng(center.latitude + offsetLat, center.longitude + (i + 1) * lngStep + offsetLng));
+            }
+          }
+        } else {
+          // Even index drones - horizontal grid
+          for (int i = 0; i < 5; i++) {
+            path.add(LatLng(center.latitude + i * latStep + offsetLat, center.longitude + offsetLng));
+            path.add(LatLng(center.latitude + i * latStep + offsetLat, center.longitude + 4 * lngStep + offsetLng));
+            if (i < 4) {
+              path.add(LatLng(center.latitude + (i + 1) * latStep + offsetLat, center.longitude + 4 * lngStep + offsetLng));
+              path.add(LatLng(center.latitude + (i + 1) * latStep + offsetLat, center.longitude + offsetLng));
+            }
           }
         }
         break;
       case 'Zigzag':
         // Zigzag pattern - alternating diagonal
-        for (int i = 0; i < 10; i++) {
-          double lat = center.latitude + (i * latStep * 0.5);
-          double lng = center.longitude + (i % 2 == 0 ? 0 : 3 * lngStep);
-          path.add(LatLng(lat, lng));
+        if (offsetIndex % 2 == 1) {
+          // Odd index drones - reverse zigzag
+          for (int i = 0; i < 10; i++) {
+            double lat = center.latitude + (i * latStep * 0.5) + offsetLat;
+            double lng = center.longitude + (i % 2 == 0 ? 3 * lngStep : 0) + offsetLng;
+            path.add(LatLng(lat, lng));
+          }
+        } else {
+          // Even index drones - normal zigzag
+          for (int i = 0; i < 10; i++) {
+            double lat = center.latitude + (i * latStep * 0.5) + offsetLat;
+            double lng = center.longitude + (i % 2 == 0 ? 0 : 3 * lngStep) + offsetLng;
+            path.add(LatLng(lat, lng));
+          }
         }
         break;
       case 'Spiral':
         // Spiral pattern - expanding circle
         for (int i = 0; i < 50; i++) {
-          double angle = i * 0.3;
+          double angle = (offsetIndex % 2 == 1 ? -1 : 1) * i * 0.3;
           double radius = 0.002 + (i * 0.0003);
           path.add(LatLng(
-            center.latitude + radius * math.cos(angle),
-            center.longitude + radius * math.sin(angle),
+            center.latitude + radius * math.cos(angle) + offsetLat,
+            center.longitude + radius * math.sin(angle) + offsetLng,
           ));
         }
         break;
       case 'Random':
         // Random pattern - pseudo random waypoints
-        path.add(center);
+        path.add(LatLng(center.latitude + offsetLat, center.longitude + offsetLng));
         for (int i = 0; i < 20; i++) {
-          path.add(LatLng(
-            center.latitude + (i * 0.0005) + (i % 3 == 0 ? 0.002 : -0.001),
-            center.longitude + (i * 0.0005) + (i % 5 == 0 ? 0.003 : -0.002),
-          ));
+          if (offsetIndex % 2 == 1) {
+            // Odd index drones - different random pattern
+            path.add(LatLng(
+              center.latitude + (i * 0.0005) + (i % 2 == 0 ? 0.003 : -0.002) + offsetLat,
+              center.longitude + (i * 0.0005) + (i % 3 == 0 ? -0.003 : 0.002) + offsetLng,
+            ));
+          } else {
+            // Even index drones - normal random
+            path.add(LatLng(
+              center.latitude + (i * 0.0005) + (i % 3 == 0 ? 0.002 : -0.001) + offsetLat,
+              center.longitude + (i * 0.0005) + (i % 5 == 0 ? 0.003 : -0.002) + offsetLng,
+            ));
+          }
         }
         break;
       case 'Manual Control':
         // Manual - just stay at center
-        path.add(center);
+        path.add(LatLng(center.latitude + offsetLat, center.longitude + offsetLng));
         break;
       default:
-        path.add(center);
+        path.add(LatLng(center.latitude + offsetLat, center.longitude + offsetLng));
     }
 
     return path;
@@ -167,99 +209,101 @@ class _OverviewScreenState extends State<OverviewScreen> {
     _pathTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!isMissionRunning || isMissionPaused) return;
 
-      if (currentPathIndex < dronePath.length - 1) {
-        setState(() {
-          currentPathIndex++;
-          dronePosition = dronePath[currentPathIndex];
-        });
-        // Center map on drone
-        mapController.move(dronePosition, 16.0);
+      // Animate drones based on operation mode
+      if (selectedOpMode == 'Advance UAV Swarm Operation') {
+        // Animate all 5 drones
+        if (currentPathIndex < dronePath.length - 1) {
+          setState(() {
+            currentPathIndex++;
+            dronePosition = dronePath[currentPathIndex];
+          });
+          _checkHazardousZones(dronePosition);
+        } else {
+          currentPathIndex = 0;
+        }
 
-        // Check for hazardous zone detection
-        _checkHazardousZones();
+        if (drone2PathIndex < drone2Path.length - 1) {
+          setState(() {
+            drone2PathIndex++;
+            drone2Position = drone2Path[drone2PathIndex];
+          });
+          _checkHazardousZones(drone2Position);
+        } else {
+          drone2PathIndex = 0;
+        }
+
+        if (drone3PathIndex < drone3Path.length - 1) {
+          setState(() {
+            drone3PathIndex++;
+            drone3Position = drone3Path[drone3PathIndex];
+          });
+          _checkHazardousZones(drone3Position);
+        } else {
+          drone3PathIndex = 0;
+        }
+
+        if (drone4PathIndex < drone4Path.length - 1) {
+          setState(() {
+            drone4PathIndex++;
+            drone4Position = drone4Path[drone4PathIndex];
+          });
+          _checkHazardousZones(drone4Position);
+        } else {
+          drone4PathIndex = 0;
+        }
+
+        if (drone5PathIndex < drone5Path.length - 1) {
+          setState(() {
+            drone5PathIndex++;
+            drone5Position = drone5Path[drone5PathIndex];
+          });
+          _checkHazardousZones(drone5Position);
+        } else {
+          drone5PathIndex = 0;
+        }
+      } else if (selectedOpMode == 'Multi-Drone Surveillance' || selectedOpMode == 'Advanced Mixed Operations') {
+        // Animate 2 drones
+        if (currentPathIndex < dronePath.length - 1) {
+          setState(() {
+            currentPathIndex++;
+            dronePosition = dronePath[currentPathIndex];
+          });
+          _checkHazardousZones(dronePosition);
+        } else {
+          currentPathIndex = 0;
+        }
+
+        if (drone2PathIndex < drone2Path.length - 1) {
+          setState(() {
+            drone2PathIndex++;
+            drone2Position = drone2Path[drone2PathIndex];
+          });
+          _checkHazardousZones(drone2Position);
+        } else {
+          drone2PathIndex = 0;
+        }
       } else {
-        // Path complete - loop
-        currentPathIndex = 0;
+        // Manual mode - only first drone
+        if (currentPathIndex < dronePath.length - 1) {
+          setState(() {
+            currentPathIndex++;
+            dronePosition = dronePath[currentPathIndex];
+          });
+          _checkHazardousZones(dronePosition);
+        } else {
+          currentPathIndex = 0;
+        }
       }
+
+      // Center map on first drone
+      mapController.move(dronePosition, 16.0);
     });
   }
 
-  void _checkHazardousZones() {
-    for (var zone in hazardousZones) {
-      if (zone.detected) continue; // Already detected
 
-      // Calculate distance between drone and zone center
-      final distance = Geolocator.distanceBetween(
-        dronePosition.latitude,
-        dronePosition.longitude,
-        zone.center.latitude,
-        zone.center.longitude,
-      );
-
-      // If drone is within zone radius, mark as detected
-      if (distance <= zone.radiusKm * 1000) {
-        setState(() {
-          zone.detected = true;
-
-          // If critical zone (red), add detected substance to database
-          if (zone.severity == 'critical') {
-            // Find substance matching zone type
-            final now = DateTime.now();
-            final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-
-            // Add to detected substances list
-            detectedSubstances.add(DetectedSubstance(
-              name: _getSubstanceName(zone.substanceType),
-              type: zone.substanceType,
-              lat: zone.center.latitude,
-              lng: zone.center.longitude,
-              severity: 'critical',
-              time: timeStr,
-            ));
-
-            // Add activity log entry
-            activityLog.insert(
-              0,
-              ActivityLog(
-                message: 'Hazardous substance detected: ${_getSubstanceName(zone.substanceType)} (${zone.name})',
-                type: 'critical',
-                time: timeStr,
-              ),
-            );
-          } else {
-            // Add activity log entry for non-critical zones
-            final now = DateTime.now();
-            final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-            activityLog.insert(
-              0,
-              ActivityLog(
-                message: 'Hazardous zone detected: ${zone.name}',
-                type: 'warning',
-                time: timeStr,
-              ),
-            );
-          }
-        });
-      }
-    }
-  }
-
-  String _getSubstanceName(String type) {
-    switch (type) {
-      case 'chemical':
-        return 'Sarin';
-      case 'biological':
-        return 'Anthrax';
-      case 'radiological':
-        return 'Cesium-137';
-      case 'nuclear':
-        return 'Uranium-235';
-      default:
-        return 'Unknown Substance';
-    }
-  }
 
   void _stopMission() {
+    final center = currentLocation ?? defaultCenter;
     setState(() {
       isMissionRunning = false;
       isMissionPaused = false;
@@ -267,12 +311,70 @@ class _OverviewScreenState extends State<OverviewScreen> {
       missionSeconds = 0;
       dronePath = [];
       currentPathIndex = 0;
-      dronePosition = defaultCenter;
+      // Return to positions around user's location
+      dronePosition = LatLng(center.latitude + 0.002, center.longitude + 0.002);
+      drone2Path = [];
+      drone2PathIndex = 0;
+      drone2Position = LatLng(center.latitude - 0.002, center.longitude - 0.002);
+      drone3Path = [];
+      drone3PathIndex = 0;
+      drone3Position = LatLng(center.latitude + 0.004, center.longitude + 0.004);
+      drone4Path = [];
+      drone4PathIndex = 0;
+      drone4Position = LatLng(center.latitude - 0.004, center.longitude + 0.004);
+      drone5Path = [];
+      drone5PathIndex = 0;
+      drone5Position = LatLng(center.latitude + 0.004, center.longitude - 0.004);
     });
     _missionTimer?.cancel();
     _pathTimer?.cancel();
     _missionTimer = null;
     _pathTimer = null;
+  }
+
+  void _checkHazardousZones([LatLng? position]) {
+    final checkPosition = position ?? dronePosition;
+
+    // Check if user location zone exists and not yet detected
+    if (userLocationZone != null && !userLocationZone!.detected) {
+      // Calculate distance between drone and zone center
+      final distance = Geolocator.distanceBetween(
+        checkPosition.latitude,
+        checkPosition.longitude,
+        userLocationZone!.center.latitude,
+        userLocationZone!.center.longitude,
+      );
+
+      // If drone is within zone radius, mark as detected
+      if (distance <= userLocationZone!.radiusKm * 1000) {
+        setState(() {
+          userLocationZone!.detected = true;
+
+          // Add detected substance (Sarin - chemical agent)
+          final now = DateTime.now();
+          final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+          detectedSubstances.add(DetectedSubstance(
+            name: 'Sarin',
+            type: 'chemical',
+            lat: userLocationZone!.center.latitude,
+            lng: userLocationZone!.center.longitude,
+            severity: 'critical',
+            time: timeStr,
+          ));
+
+          // Add activity log entry
+          activityLog.insert(
+            0,
+            ActivityLog(
+              message: 'Hazardous substance detected: Sarin (${userLocationZone!.name})',
+              type: 'critical',
+              time: timeStr,
+            ),
+          );
+        });
+      }
+    }
   }
 
   void _startTimer() {
@@ -363,14 +465,29 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
     final userLocation = LatLng(position.latitude, position.longitude);
 
-    // Update both current location and drone position
+    // Update both current location and drone positions (around user's location, not at it)
     currentLocation = userLocation;
-    dronePosition = userLocation;
+    dronePosition = LatLng(userLocation.latitude + 0.002, userLocation.longitude + 0.002);
+    drone2Position = LatLng(userLocation.latitude - 0.002, userLocation.longitude - 0.002);
+    drone3Position = LatLng(userLocation.latitude + 0.004, userLocation.longitude + 0.004);
+    drone4Position = LatLng(userLocation.latitude - 0.004, userLocation.longitude + 0.004);
+    drone5Position = LatLng(userLocation.latitude + 0.004, userLocation.longitude - 0.004);
+
+    // Create hazardous zone on drone's path (red zone)
+    // Place it at a point that drone will pass through
+    userLocationZone = HazardousZone(
+      name: 'Chemical Hazard Zone',
+      center: LatLng(userLocation.latitude + 0.003, userLocation.longitude + 0.003),
+      radiusKm: 0.3,
+      severity: 'critical',
+      substanceType: 'chemical',
+      detected: false,
+    );
 
     // Move map to user's location
     mapController.move(userLocation, 16.0);
 
-    // Trigger rebuild to update drone marker
+    // Trigger rebuild to update drone markers
     setState(() {});
   }
 
@@ -540,7 +657,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             if (dronePath.length > 1) _pathLayer(),
             _droneMarker(),
             if (currentLocation != null) _currentLocationMarker(),
-            _hazardousZonesLayer(),
+            if (userLocationZone != null) _hazardousZonesLayer(),
           ],
         ),
       ),
@@ -548,33 +665,164 @@ class _OverviewScreenState extends State<OverviewScreen> {
   }
 
   Widget _pathLayer() {
-    return PolylineLayer(
-      polylines: [
+    List<Polyline> polylines = [
+      // First drone path (blue)
+      if (dronePath.length > 1)
         Polyline(
           points: dronePath,
           strokeWidth: 3,
-          color: const Color(0xFF38FF9C).withOpacity(0.6),
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
         ),
-      ],
-    );
+      // Second drone path (blue)
+      if (drone2Path.length > 1)
+        Polyline(
+          points: drone2Path,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+    ];
+
+    // Add paths for swarm mode
+    if (selectedOpMode == 'Advance UAV Swarm Operation') {
+      polylines.addAll([
+        // Third drone path
+        if (drone3Path.length > 1)
+          Polyline(
+            points: drone3Path,
+            strokeWidth: 3,
+            color: const Color(0xFF00D4FF).withOpacity(0.6),
+          ),
+        // Fourth drone path
+        if (drone4Path.length > 1)
+          Polyline(
+            points: drone4Path,
+            strokeWidth: 3,
+            color: const Color(0xFF00D4FF).withOpacity(0.6),
+          ),
+        // Fifth drone path
+        if (drone5Path.length > 1)
+          Polyline(
+            points: drone5Path,
+            strokeWidth: 3,
+            color: const Color(0xFF00D4FF).withOpacity(0.6),
+          ),
+      ]);
+    }
+
+    return PolylineLayer(polylines: polylines);
   }
 
   Widget _droneMarker() {
-    return MarkerLayer(
-      markers: [
+    List<Marker> markers = [
+      // First drone (blue)
+      Marker(
+        point: dronePosition,
+        width: 40,
+        height: 40,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF00D4FF),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: const Icon(Icons.flight, color: Colors.black, size: 24),
+        ),
+      ),
+      // Second drone (blue)
+      Marker(
+        point: drone2Position,
+        width: 40,
+        height: 40,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF00D4FF),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+            ],
+          ),
+          child: const Icon(Icons.flight, color: Colors.black, size: 24),
+        ),
+      ),
+    ];
+
+    // Add additional drones for swarm mode
+    if (selectedOpMode == 'Advance UAV Swarm Operation') {
+      markers.addAll([
+        // Third drone (blue)
         Marker(
-          point: dronePosition,
+          point: drone3Position,
           width: 40,
           height: 40,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF38FF9C),
+              color: const Color(0xFF00D4FF),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
-            child: const Icon(Icons.air, color: Colors.black, size: 24),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+        // Fourth drone (blue)
+        Marker(
+          point: drone4Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+        // Fifth drone (blue)
+        Marker(
+          point: drone5Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+      ]);
+    }
+
+    return MarkerLayer(markers: markers);
+  }
+
+  Widget _hazardousZonesLayer() {
+    if (userLocationZone == null) return const SizedBox.shrink();
+    
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: userLocationZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF4D4F).withOpacity(userLocationZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFF4D4F),
+                width: 2,
+              ),
+            ),
           ),
         ),
       ],
@@ -603,33 +851,6 @@ class _OverviewScreenState extends State<OverviewScreen> {
     );
   }
 
-  Widget _hazardousZonesLayer() {
-    return CircleLayer(
-      circles: hazardousZones.map((zone) {
-        Color zoneColor;
-        switch (zone.severity) {
-          case 'critical':
-            zoneColor = const Color(0xFFFF4D4F);
-            break;
-          case 'high':
-            zoneColor = const Color(0xFFFF7A45);
-            break;
-          case 'medium':
-            zoneColor = const Color(0xFFFFB020);
-            break;
-          default:
-            zoneColor = const Color(0xFF2F80ED);
-        }
-        return CircleMarker(
-          point: zone.center,
-          radius: zone.radiusKm * 1000, // Convert km to meters
-          color: zoneColor.withOpacity(zone.detected ? 0.6 : 0.2),
-          borderColor: zoneColor,
-          borderStrokeWidth: 2,
-        );
-      }).toList(),
-    );
-  }
 
   Widget _tileLayer() {
     return TileLayer(urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', subdomains: const ['a', 'b', 'c'], userAgentPackageName: 'com.example.cbrn4');
@@ -740,6 +961,19 @@ class SystemComponent {
   SystemComponent({required this.name, required this.value, required this.hasWarning});
 }
 
+
+class ActivityLog {
+  final String message;
+  final String type;
+  final String time;
+
+  ActivityLog({
+    required this.message,
+    required this.type,
+    required this.time,
+  });
+}
+
 class HazardousZone {
   final String name;
   final LatLng center;
@@ -755,17 +989,5 @@ class HazardousZone {
     required this.severity,
     required this.substanceType,
     this.detected = false,
-  });
-}
-
-class ActivityLog {
-  final String message;
-  final String type;
-  final String time;
-
-  ActivityLog({
-    required this.message,
-    required this.type,
-    required this.time,
   });
 }

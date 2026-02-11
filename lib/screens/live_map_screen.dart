@@ -29,6 +29,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   String timelineFilter = 'all';
   bool notificationSoundOn = true;
 
+  // Drone data
+  final List<Drone> drones = [];
+
 
   final List<AlertItem> alertTimelineData = [
     AlertItem(id: 1, severity: 'critical', message: 'Chlorine plume detected', time: '00:00:32'),
@@ -77,9 +80,35 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
     setState(() {
       currentLocation = userLocation;
+      // Initialize drones around user's location
+      _initializeDrones(userLocation);
       // Move map to user's location
       mapController.move(userLocation, 16.0);
     });
+  }
+
+  void _initializeDrones(LatLng userLocation) {
+    // Create 2 drones around the user's location
+    // Drone 1: ~500m northeast
+    final drone1 = Drone(
+      id: 1,
+      name: 'Drone Alpha',
+      position: LatLng(userLocation.latitude + 0.0045, userLocation.longitude + 0.0045),
+      status: 'Active',
+      battery: 85,
+    );
+    
+    // Drone 2: ~500m southwest
+    final drone2 = Drone(
+      id: 2,
+      name: 'Drone Bravo',
+      position: LatLng(userLocation.latitude - 0.0045, userLocation.longitude - 0.0045),
+      status: 'Active',
+      battery: 72,
+    );
+
+    drones.clear();
+    drones.addAll([drone1, drone2]);
   }
 
   @override
@@ -114,6 +143,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         children: [
           _tileLayer(),
           if (currentLocation != null) _currentLocationMarker(),
+          if (drones.isNotEmpty) _droneMarkers(),
         ],
       ),
       Positioned(top: 16, right: 16, child: _mapControls()),
@@ -144,6 +174,47 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _droneMarkers() {
+    return MarkerLayer(
+      markers: drones.map((drone) {
+        return Marker(
+          point: drone.position,
+          width: 48,
+          height: 48,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Stack(
+              children: [
+                const Icon(Icons.flight, color: Colors.black, size: 24),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.black,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${drone.battery}%',
+                      style: const TextStyle(color: Color(0xFF00D4FF), fontSize: 8, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -240,6 +311,21 @@ class NotificationItem {
   final int id;
   final String message, time;
   NotificationItem({required this.id, required this.message, required this.time});
+}
+
+class Drone {
+  final int id;
+  final String name;
+  final LatLng position;
+  final String status;
+  final int battery;
+  Drone({
+    required this.id,
+    required this.name,
+    required this.position,
+    required this.status,
+    required this.battery,
+  });
 }
 
 class _SeverityRow extends StatelessWidget {
