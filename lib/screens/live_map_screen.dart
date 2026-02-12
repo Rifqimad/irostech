@@ -29,9 +29,21 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   String timelineFilter = 'all';
   bool notificationSoundOn = true;
 
+  // Drone positions
+  LatLng dronePosition = const LatLng(51.505, -0.09);
+  LatLng drone2Position = const LatLng(51.505, -0.09);
+  LatLng drone3Position = const LatLng(51.505, -0.09);
+  LatLng drone4Position = const LatLng(51.505, -0.09);
+  LatLng drone5Position = const LatLng(51.505, -0.09);
+
+  // Hazardous zones
+  HazardousZone? redZone;
+  HazardousZone? greenZone;
+  HazardousZone? mediumRiskZone;
+  HazardousZone? lowRiskZone;
+
   // Drone data
   final List<Drone> drones = [];
-
 
   final List<AlertItem> alertTimelineData = [
     AlertItem(id: 1, severity: 'critical', message: 'Chlorine plume detected', time: '00:00:32'),
@@ -84,11 +96,51 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       _initializeDrones(userLocation);
       // Move map to user's location
       mapController.move(userLocation, 16.0);
+      
+      // Create red zone (dangerous) on drone's path - northeast
+      redZone = HazardousZone(
+        name: 'Chemical Hazard Zone',
+        center: LatLng(userLocation.latitude + 0.003, userLocation.longitude + 0.003),
+        radiusKm: 0.3,
+        severity: 'critical',
+        substanceType: 'chemical',
+        detected: false,
+      );
+
+      // Create green zone (safe) further away from red zone - far northeast
+      greenZone = HazardousZone(
+        name: 'Safe Zone',
+        center: LatLng(userLocation.latitude + 0.008, userLocation.longitude + 0.008),
+        radiusKm: 0.3,
+        severity: 'safe',
+        substanceType: 'none',
+        detected: false,
+      );
+
+      // Create low risk zone (yellow) - southwest
+      lowRiskZone = HazardousZone(
+        name: 'Low Risk Zone',
+        center: LatLng(userLocation.latitude - 0.003, userLocation.longitude - 0.003),
+        radiusKm: 0.3,
+        severity: 'low',
+        substanceType: 'mild_chemical',
+        detected: false,
+      );
+
+      // Create high risk zone (orange) - southeast
+      mediumRiskZone = HazardousZone(
+        name: 'High Risk Zone',
+        center: LatLng(userLocation.latitude - 0.003, userLocation.longitude + 0.003),
+        radiusKm: 0.3,
+        severity: 'high',
+        substanceType: 'hazardous_chemical',
+        detected: false,
+      );
     });
   }
 
   void _initializeDrones(LatLng userLocation) {
-    // Create 2 drones around the user's location
+    // Create 5 drones around user's location
     // Drone 1: ~500m northeast
     final drone1 = Drone(
       id: 1,
@@ -97,7 +149,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       status: 'Active',
       battery: 85,
     );
-    
+
     // Drone 2: ~500m southwest
     final drone2 = Drone(
       id: 2,
@@ -107,8 +159,35 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
       battery: 72,
     );
 
+    // Drone 3: ~500m northwest
+    final drone3 = Drone(
+      id: 3,
+      name: 'Drone Charlie',
+      position: LatLng(userLocation.latitude + 0.0045, userLocation.longitude - 0.0045),
+      status: 'Active',
+      battery: 90,
+    );
+
+    // Drone 4: ~500m southeast
+    final drone4 = Drone(
+      id: 4,
+      name: 'Drone Delta',
+      position: LatLng(userLocation.latitude - 0.0045, userLocation.longitude + 0.0045),
+      status: 'Active',
+      battery: 78,
+    );
+
+    // Drone 5: ~600m east
+    final drone5 = Drone(
+      id: 5,
+      name: 'Drone Echo',
+      position: LatLng(userLocation.latitude, userLocation.longitude + 0.006),
+      status: 'Active',
+      battery: 88,
+    );
+
     drones.clear();
-    drones.addAll([drone1, drone2]);
+    drones.addAll([drone1, drone2, drone3, drone4, drone5]);
   }
 
   @override
@@ -136,23 +215,33 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Widget _buildMapArea() {
-    return ClipRRect(borderRadius: BorderRadius.circular(16), child: Stack(children: [
-      FlutterMap(
-        mapController: mapController,
-        options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
         children: [
-          _tileLayer(),
-          if (currentLocation != null) _currentLocationMarker(),
-          if (drones.isNotEmpty) _droneMarkers(),
+          FlutterMap(
+            mapController: mapController,
+            options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
+            children: [
+              _tileLayer(),
+              if (currentLocation != null) _currentLocationMarker(),
+              if (drones.isNotEmpty) _droneMarkers(),
+              if (redZone != null || greenZone != null) _hazardousZonesLayer(),
+            ],
+          ),
+          Positioned(top: 16, right: 16, child: _mapControls()),
+          Positioned(bottom: 16, left: 16, child: _zoomButtons()),
         ],
       ),
-      Positioned(top: 16, right: 16, child: _mapControls()),
-      Positioned(bottom: 16, left: 16, child: _zoomButtons()),
-    ]));
+    );
   }
 
   Widget _tileLayer() {
-    return TileLayer(urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', subdomains: ['a', 'b', 'c'], userAgentPackageName: 'com.example.cbrn4');
+    return TileLayer(
+      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      subdomains: ['a', 'b', 'c'],
+      userAgentPackageName: 'com.example.cbrn4',
+    );
   }
 
   Widget _currentLocationMarker() {
@@ -212,70 +301,228 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 ),
               ],
             ),
-          ),
-        );
+          ));
       }).toList(),
     );
   }
 
   Widget _zoomButtons() {
-    return Container(decoration: BoxDecoration(color: const Color(0xFF101915).withOpacity(0.95), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF1C2A24))), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      IconButton(onPressed: () => mapController.move(mapController.camera.center, mapController.camera.zoom + 1), icon: const Icon(Icons.add, size: 20), padding: const EdgeInsets.all(8), style: IconButton.styleFrom(backgroundColor: const Color(0xFF1C2A24), foregroundColor: const Color(0xFFE6F4EE))),
-      const SizedBox(height: 1),
-      IconButton(onPressed: () => mapController.move(mapController.camera.center, mapController.camera.zoom - 1), icon: const Icon(Icons.remove, size: 20), padding: const EdgeInsets.all(8), style: IconButton.styleFrom(backgroundColor: const Color(0xFF1C2A24), foregroundColor: const Color(0xFFE6F4EE))),
-    ]));
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF101915).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF1C2A24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: () => mapController.move(mapController.camera.center, mapController.camera.zoom + 1),
+            icon: const Icon(Icons.add, size: 20),
+            padding: const EdgeInsets.all(8),
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFF1C2A24), foregroundColor: const Color(0xFFE6F4EE)),
+          ),
+          const SizedBox(height: 1),
+          IconButton(
+            onPressed: () => mapController.move(mapController.camera.center, mapController.camera.zoom - 1),
+            icon: const Icon(Icons.remove, size: 20),
+            padding: const EdgeInsets.all(8),
+            style: IconButton.styleFrom(backgroundColor: const Color(0xFF1C2A24), foregroundColor: const Color(0xFFE6F4EE)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _mapControls() {
-    return Container(width: 160, padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF101915).withOpacity(0.95), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF1C2A24))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      _mapToggle(label: 'Pan Mode', active: true, onTap: () {}),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Layer: ${layerType[0].toUpperCase()}${layerType.substring(1)}', active: layerType == 'standard', onTap: () => setState(() => layerType = layerType == 'standard' ? 'satellite' : 'standard')),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Trails: ${showTrails ? 'ON' : 'OFF'}', active: showTrails, onTap: () => setState(() => showTrails = !showTrails)),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Plume: ${plumeOn ? 'ON' : 'OFF'}', active: plumeOn, onTap: () => setState(() => plumeOn = !plumeOn)),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Heatmap: ${showHeatmap ? 'ON' : 'OFF'}', active: showHeatmap, onTap: () => setState(() => showHeatmap = !showHeatmap)),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Routes: ${showRoutes ? 'ON' : 'OFF'}', active: showRoutes, onTap: () => setState(() => showRoutes = !showRoutes)),
-      const SizedBox(height: 6),
-      _mapToggle(label: 'Geofences: ${showGeofences ? 'ON' : 'OFF'}', active: showGeofences, onTap: () => setState(() => showGeofences = !showGeofences)),
-    ]));
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101915).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF1C2A24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _mapToggle(label: 'Pan Mode', active: true, onTap: () {}),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Layer: ${layerType[0].toUpperCase()}${layerType.substring(1)}',
+            active: layerType == 'standard',
+            onTap: () => setState(() => layerType = layerType == 'standard' ? 'satellite' : 'standard'),
+          ),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Trails: ${showTrails ? 'ON' : 'OFF'}',
+            active: showTrails,
+            onTap: () => setState(() => showTrails = !showTrails),
+          ),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Plume: ${plumeOn ? 'ON' : 'OFF'}',
+            active: plumeOn,
+            onTap: () => setState(() => plumeOn = !plumeOn),
+          ),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Heatmap: ${showHeatmap ? 'ON' : 'OFF'}',
+            active: showHeatmap,
+            onTap: () => setState(() => showHeatmap = !showHeatmap),
+          ),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Routes: ${showRoutes ? 'ON' : 'OFF'}',
+            active: showRoutes,
+            onTap: () => setState(() => showRoutes = !showRoutes),
+          ),
+          const SizedBox(height: 6),
+          _mapToggle(
+            label: 'Geofences: ${showGeofences ? 'ON' : 'OFF'}',
+            active: showGeofences,
+            onTap: () => setState(() => showGeofences = !showGeofences),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _mapToggle({required String label, required bool active, required VoidCallback onTap}) {
-    return SizedBox(width: double.infinity, child: ElevatedButton(onPressed: onTap, style: ElevatedButton.styleFrom(backgroundColor: active ? const Color(0xFF38FF9C) : const Color(0xFF1C2A24), foregroundColor: active ? Colors.black : const Color(0xFFE6F4EE), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), minimumSize: const Size(0, 0)), child: Text(label, style: const TextStyle(fontSize: 11))));
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: active ? const Color(0xFF38FF9C) : const Color(0xFF1C2A24),
+          foregroundColor: active ? Colors.black : const Color(0xFFE6F4EE),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          minimumSize: const Size(0, 0),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 11)),
+      ),
+    );
   }
 
   Widget _buildRightPanel() {
-    return SingleChildScrollView(child: Column(children: [
-      _grid(columns: 2, children: [
-        _panel(title: 'Active Alerts', child: Column(children: const [_SeverityRow(label: 'Critical', value: '02', severity: 'critical'), _SeverityRow(label: 'High', value: '04', severity: 'high'), _SeverityRow(label: 'Medium', value: '11', severity: 'medium'), _SeverityRow(label: 'Low', value: '23', severity: 'low')])),
-      ]),
-      const SizedBox(height: 16),
-      _grid(columns: 2, children: [
-        _panel(title: 'Incident Workflow', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          DropdownButton<String>(value: incidentSeverity, dropdownColor: const Color(0xFF101915), isExpanded: true, items: const [DropdownMenuItem(value: 'critical', child: Text('Critical')), DropdownMenuItem(value: 'high', child: Text('High')), DropdownMenuItem(value: 'medium', child: Text('Medium')), DropdownMenuItem(value: 'low', child: Text('Low'))], onChanged: (v) => setState(() => incidentSeverity = v ?? 'critical')),
-          const SizedBox(height: 8),
-          ElevatedButton(onPressed: () => setState(() => incidentMode = !incidentMode), style: ElevatedButton.styleFrom(backgroundColor: incidentMode ? const Color(0xFF38FF9C) : const Color(0xFF1C2A24), foregroundColor: Colors.black), child: Text(incidentMode ? 'Add: ON' : 'Add Incident')),
-        ])),
-        _panel(title: 'Alert Timeline', child: Column(children: [
-          DropdownButton<String>(value: timelineFilter, dropdownColor: const Color(0xFF101915), isExpanded: true, items: const [DropdownMenuItem(value: 'all', child: Text('All')), DropdownMenuItem(value: 'critical', child: Text('Critical')), DropdownMenuItem(value: 'high', child: Text('High')), DropdownMenuItem(value: 'medium', child: Text('Medium')), DropdownMenuItem(value: 'low', child: Text('Low'))], onChanged: (v) => setState(() => timelineFilter = v ?? 'all')),
-          const SizedBox(height: 8),
-          ..._filteredAlerts().map((a) => _TimelineRow(alert: a)),
-        ])),
-        _panel(title: 'Notification Center', child: Column(children: [
-          Row(children: [ElevatedButton(onPressed: () => setState(() => notificationSoundOn = !notificationSoundOn), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)), child: Text('Sound: ${notificationSoundOn ? 'On' : 'Off'}')), const SizedBox(width: 8), ElevatedButton(onPressed: _handleTestAlert, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)), child: const Text('Test'))]),
-          const SizedBox(height: 8),
-          ...notifications.take(3).map((n) => _TimelineRow(notification: n)),
-        ])),
-      ]),
-      const SizedBox(height: 16),
-      _panel(title: 'Data Export', child: Row(children: [ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)), child: const Text('JSON')), const SizedBox(width: 8), ElevatedButton(onPressed: () {}, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)), child: const Text('CSV'))])),
-    ]));
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _grid(
+            columns: 2,
+            children: [
+              _panel(
+                title: 'Active Alerts',
+                child: Column(
+                  children: const [
+                    _SeverityRow(label: 'Critical', value: '02', severity: 'critical'),
+                    _SeverityRow(label: 'High', value: '04', severity: 'high'),
+                    _SeverityRow(label: 'Medium', value: '11', severity: 'medium'),
+                    _SeverityRow(label: 'Low', value: '23', severity: 'low'),
+                  ]
+                ),
+              ),
+              _panel(
+                title: 'Incident Workflow',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButton<String>(
+                      value: incidentSeverity,
+                      dropdownColor: const Color(0xFF101915),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'critical', child: Text('Critical')),
+                        DropdownMenuItem(value: 'high', child: Text('High')),
+                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(value: 'low', child: Text('Low'))
+                      ],
+                      onChanged: (v) => setState(() => incidentSeverity = v ?? 'critical'),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () => setState(() => incidentMode = !incidentMode),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: incidentMode ? const Color(0xFF38FF9C) : const Color(0xFF1C2A24),
+                        foregroundColor: Colors.black,
+                      ),
+                      child: Text(incidentMode ? 'Add: ON' : 'Add Incident'),
+                    ),
+                  ],
+                ),
+              ),
+              _panel(
+                title: 'Alert Timeline',
+                child: Column(
+                  children: [
+                    DropdownButton<String>(
+                      value: timelineFilter,
+                      dropdownColor: const Color(0xFF101915),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('All')),
+                        DropdownMenuItem(value: 'critical', child: Text('Critical')),
+                        DropdownMenuItem(value: 'high', child: Text('High')),
+                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(value: 'low', child: Text('Low'))
+                      ],
+                      onChanged: (v) => setState(() => timelineFilter = v ?? 'all'),
+                    ),
+                    const SizedBox(height: 8),
+                    ..._filteredAlerts().map((a) => _TimelineRow(alert: a)),
+                  ],
+                ),
+              ),
+              _panel(
+                title: 'Notification Center',
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => setState(() => notificationSoundOn = !notificationSoundOn),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
+                          child: Text('Sound: ${notificationSoundOn ? 'On' : 'Off'}'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _handleTestAlert,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
+                          child: const Text('Test'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...notifications.take(3).map((n) => _TimelineRow(notification: n)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _panel(
+                title: 'Data Export',
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
+                      child: const Text('JSON'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {},
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
+                      child: const Text('CSV'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
-
 
   List<AlertItem> _filteredAlerts() {
     if (timelineFilter == 'all') return alertTimelineData;
@@ -288,17 +535,128 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   Widget _grid({required int columns, required List<Widget> children}) {
-    return LayoutBuilder(builder: (c, constr) {
-      final w = constr.maxWidth;
-      final adj = w < 800 ? 1 : w < 1200 ? (columns > 2 ? 2 : columns) : columns;
-      return Wrap(spacing: 16, runSpacing: 16, children: children.map((child) => SizedBox(width: (w - (16 * (adj - 1))) / adj, child: child)).toList());
-    });
+    return LayoutBuilder(
+      builder: (c, constr) {
+        final w = constr.maxWidth;
+        final adj = w < 800 ? 1 : w < 1200 ? (columns > 2 ? 2 : columns) : columns;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: children.map((child) => SizedBox(width: (w - (16 * (adj - 1))) / adj, child: child)).toList(),
+        );
+      },
+    );
   }
 
   Widget _panel({required String title, required Widget child}) {
-    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF101915), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF1C2A24))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 10), child]));
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101915),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1C2A24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          child,
+        ]
+      ),
+    );
   }
 
+  Widget _hazardousZonesLayer() {
+    List<Marker> markers = [];
+
+    // Add red zone (dangerous) - critical
+    if (redZone != null) {
+      markers.add(
+        Marker(
+          point: redZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF4D4F).withOpacity(redZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFF4D4F),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Add green zone (safe)
+    if (greenZone != null) {
+      markers.add(
+        Marker(
+          point: greenZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF38FF9C).withOpacity(greenZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFF38FF9C),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Add low risk zone (yellow) - low risk
+    if (lowRiskZone != null) {
+      markers.add(
+        Marker(
+          point: lowRiskZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFFB020).withOpacity(lowRiskZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFFB020),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Add high risk zone (orange) - high risk
+    if (mediumRiskZone != null) {
+      markers.add(
+        Marker(
+          point: mediumRiskZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF7A45).withOpacity(mediumRiskZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFF7A45),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
+  }
 }
 
 class AlertItem {
@@ -345,16 +703,23 @@ class _SeverityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: _c(), shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-      ]),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: _c(), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 12)),
+          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
-
 
 class _TimelineRow extends StatelessWidget {
   final AlertItem? alert;
@@ -375,15 +740,43 @@ class _TimelineRow extends StatelessWidget {
     final txt = alert?.message ?? notification?.message ?? '';
     final t = alert?.time ?? notification?.time ?? '';
     final clr = alert == null ? const Color(0xFF38FF9C) : _sc(alert!.severity);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Container(width: 6, height: 6, decoration: BoxDecoration(color: clr, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Expanded(child: Text(txt, style: const TextStyle(fontSize: 11))),
-        Text(t, style: const TextStyle(fontSize: 10, color: Color(0xFF7C8B85))),
-      ]),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: clr, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(txt, style: const TextStyle(fontSize: 11)),
+          ),
+          Text(t, style: const TextStyle(fontSize: 10, color: Color(0xFF7C8B85))),
+        ],
+      ),
     );
   }
+}
+
+class HazardousZone {
+  final String name;
+  final LatLng center;
+  final double radiusKm;
+  final String severity;
+  final String substanceType;
+  bool detected;
+  final Set<String> detectedByDrones;
+
+  HazardousZone({
+    required this.name,
+    required this.center,
+    required this.radiusKm,
+    required this.severity,
+    required this.substanceType,
+    this.detected = false,
+    Set<String>? detectedByDrones,
+  }) : detectedByDrones = detectedByDrones ?? {};
 }

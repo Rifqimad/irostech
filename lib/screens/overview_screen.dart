@@ -27,6 +27,9 @@ class _OverviewScreenState extends State<OverviewScreen> {
   final LatLng defaultCenter = const LatLng(51.505, -0.09);
   LatLng? currentLocation;
 
+  // Click state for drone names
+  String? selectedDroneName;
+
   String missionStatus = 'STANDBY';
   int missionSeconds = 0;
   bool isMissionRunning = false;
@@ -59,8 +62,9 @@ class _OverviewScreenState extends State<OverviewScreen> {
   LatLng drone5Position = const LatLng(51.505, -0.09);
   final List<DetectedSubstance> detectedSubstances = [];
 
-  // Hazardous zone around user's location (red zone)
-  HazardousZone? userLocationZone;
+  // Hazardous zones (red = dangerous, green = safe)
+  HazardousZone? redZone;
+  HazardousZone? greenZone;
 
   // Recent activity log
   final List<ActivityLog> activityLog = [];
@@ -217,7 +221,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-          _checkHazardousZones(dronePosition);
+          _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
         } else {
           currentPathIndex = 0;
         }
@@ -227,7 +231,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone2PathIndex++;
             drone2Position = drone2Path[drone2PathIndex];
           });
-          _checkHazardousZones(drone2Position);
+          _checkHazardousZones(drone2Position, 'UGV-DELTA-2');
         } else {
           drone2PathIndex = 0;
         }
@@ -237,7 +241,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone3PathIndex++;
             drone3Position = drone3Path[drone3PathIndex];
           });
-          _checkHazardousZones(drone3Position);
+          _checkHazardousZones(drone3Position, 'UAV-CHARLIE-1');
         } else {
           drone3PathIndex = 0;
         }
@@ -247,7 +251,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone4PathIndex++;
             drone4Position = drone4Path[drone4PathIndex];
           });
-          _checkHazardousZones(drone4Position);
+          _checkHazardousZones(drone4Position, 'UAV-DELTA-1');
         } else {
           drone4PathIndex = 0;
         }
@@ -257,7 +261,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone5PathIndex++;
             drone5Position = drone5Path[drone5PathIndex];
           });
-          _checkHazardousZones(drone5Position);
+          _checkHazardousZones(drone5Position, 'UAV-ECHO-1');
         } else {
           drone5PathIndex = 0;
         }
@@ -268,7 +272,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-          _checkHazardousZones(dronePosition);
+          _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
         } else {
           currentPathIndex = 0;
         }
@@ -278,7 +282,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone2PathIndex++;
             drone2Position = drone2Path[drone2PathIndex];
           });
-          _checkHazardousZones(drone2Position);
+          _checkHazardousZones(drone2Position, 'UGV-DELTA-2');
         } else {
           drone2PathIndex = 0;
         }
@@ -289,7 +293,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-          _checkHazardousZones(dronePosition);
+          _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
         } else {
           currentPathIndex = 0;
         }
@@ -332,43 +336,67 @@ class _OverviewScreenState extends State<OverviewScreen> {
     _pathTimer = null;
   }
 
-  void _checkHazardousZones([LatLng? position]) {
-    final checkPosition = position ?? dronePosition;
-
-    // Check if user location zone exists and not yet detected
-    if (userLocationZone != null && !userLocationZone!.detected) {
-      // Calculate distance between drone and zone center
+  void _checkHazardousZones(LatLng position, String droneName) {
+    // Check red zone (dangerous)
+    if (redZone != null) {
       final distance = Geolocator.distanceBetween(
-        checkPosition.latitude,
-        checkPosition.longitude,
-        userLocationZone!.center.latitude,
-        userLocationZone!.center.longitude,
+        position.latitude,
+        position.longitude,
+        redZone!.center.latitude,
+        redZone!.center.longitude,
       );
 
-      // If drone is within zone radius, mark as detected
-      if (distance <= userLocationZone!.radiusKm * 1000) {
+      if (distance <= redZone!.radiusKm * 1000 && !redZone!.detectedByDrones.contains(droneName)) {
         setState(() {
-          userLocationZone!.detected = true;
+          redZone!.detected = true;
+          redZone!.detectedByDrones.add(droneName);
 
-          // Add detected substance (Sarin - chemical agent)
           final now = DateTime.now();
           final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
           detectedSubstances.add(DetectedSubstance(
             name: 'Sarin',
             type: 'chemical',
-            lat: userLocationZone!.center.latitude,
-            lng: userLocationZone!.center.longitude,
+            lat: redZone!.center.latitude,
+            lng: redZone!.center.longitude,
             severity: 'critical',
             time: timeStr,
           ));
 
-          // Add activity log entry
           activityLog.insert(
             0,
             ActivityLog(
-              message: 'Hazardous substance detected: Sarin (${userLocationZone!.name})',
+              message: '$droneName detected hazardous substance: Sarin (${redZone!.name})',
               type: 'critical',
+              time: timeStr,
+            ),
+          );
+        });
+      }
+    }
+
+    // Check green zone (safe)
+    if (greenZone != null) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        greenZone!.center.latitude,
+        greenZone!.center.longitude,
+      );
+
+      if (distance <= greenZone!.radiusKm * 1000 && !greenZone!.detectedByDrones.contains(droneName)) {
+        setState(() {
+          greenZone!.detected = true;
+          greenZone!.detectedByDrones.add(droneName);
+
+          final now = DateTime.now();
+          final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+          activityLog.insert(
+            0,
+            ActivityLog(
+              message: '$droneName detected safe zone: ${greenZone!.name}',
+              type: 'success',
               time: timeStr,
             ),
           );
@@ -473,14 +501,23 @@ class _OverviewScreenState extends State<OverviewScreen> {
     drone4Position = LatLng(userLocation.latitude - 0.004, userLocation.longitude + 0.004);
     drone5Position = LatLng(userLocation.latitude + 0.004, userLocation.longitude - 0.004);
 
-    // Create hazardous zone on drone's path (red zone)
-    // Place it at a point that drone will pass through
-    userLocationZone = HazardousZone(
+    // Create red zone (dangerous) on drone's path
+    redZone = HazardousZone(
       name: 'Chemical Hazard Zone',
       center: LatLng(userLocation.latitude + 0.003, userLocation.longitude + 0.003),
       radiusKm: 0.3,
       severity: 'critical',
       substanceType: 'chemical',
+      detected: false,
+    );
+
+    // Create green zone (safe) further away from red zone
+    greenZone = HazardousZone(
+      name: 'Safe Zone',
+      center: LatLng(userLocation.latitude + 0.008, userLocation.longitude + 0.008),
+      radiusKm: 0.3,
+      severity: 'safe',
+      substanceType: 'none',
       detected: false,
     );
 
@@ -649,19 +686,95 @@ class _OverviewScreenState extends State<OverviewScreen> {
       height: 400,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: FlutterMap(
-          mapController: mapController,
-          options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
+        child: Stack(
           children: [
-            _tileLayer(),
-            if (dronePath.length > 1) _pathLayer(),
-            _droneMarker(),
-            if (currentLocation != null) _currentLocationMarker(),
-            if (userLocationZone != null) _hazardousZonesLayer(),
+            FlutterMap(
+              mapController: mapController,
+              options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
+              children: [
+                _tileLayer(),
+                if (dronePath.length > 1) _pathLayer(),
+                _droneMarker(),
+                if (currentLocation != null) _currentLocationMarker(),
+                if (redZone != null || greenZone != null) _hazardousZonesLayer(),
+              ],
+            ),
+            // Drone name card overlay
+            if (selectedDroneName != null)
+              Positioned(
+                right: 16,
+                top: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF101915),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF38FF9C), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF38FF9C),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'SELECTED DRONE',
+                            style: TextStyle(
+                              color: Colors.grey[400],
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        selectedDroneName!,
+                        style: const TextStyle(
+                          color: Color(0xFF38FF9C),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _getDroneType(selectedDroneName!),
+                        style: const TextStyle(
+                          color: Color(0xFF7C8B85),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  String _getDroneType(String droneName) {
+    if (droneName.startsWith('UAV')) return 'Unmanned Aerial Vehicle';
+    if (droneName.startsWith('UGV')) return 'Unmanned Ground Vehicle';
+    return 'Unknown Type';
   }
 
   Widget _pathLayer() {
@@ -714,36 +827,50 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
   Widget _droneMarker() {
     List<Marker> markers = [
-      // First drone (blue)
+      // First drone (blue) - UAV-ALPHA-1
       Marker(
         point: dronePosition,
         width: 40,
         height: 40,
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF00D4FF),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-            ],
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedDroneName = selectedDroneName == 'UAV-ALPHA-1' ? null : 'UAV-ALPHA-1';
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: selectedDroneName == 'UAV-ALPHA-1' ? const Color(0xFF38FF9C) : const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
-          child: const Icon(Icons.flight, color: Colors.black, size: 24),
         ),
       ),
-      // Second drone (blue)
+      // Second drone (blue) - UGV-DELTA-2
       Marker(
         point: drone2Position,
         width: 40,
         height: 40,
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF00D4FF),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-            ],
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              selectedDroneName = selectedDroneName == 'UGV-DELTA-2' ? null : 'UGV-DELTA-2';
+            });
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: selectedDroneName == 'UGV-DELTA-2' ? const Color(0xFF38FF9C) : const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
-          child: const Icon(Icons.flight, color: Colors.black, size: 24),
         ),
       ),
     ];
@@ -751,52 +878,73 @@ class _OverviewScreenState extends State<OverviewScreen> {
     // Add additional drones for swarm mode
     if (selectedOpMode == 'Advance UAV Swarm Operation') {
       markers.addAll([
-        // Third drone (blue)
+        // Third drone (blue) - UAV-CHARLIE-1
         Marker(
           point: drone3Position,
           width: 40,
           height: 40,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D4FF),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedDroneName = selectedDroneName == 'UAV-CHARLIE-1' ? null : 'UAV-CHARLIE-1';
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: selectedDroneName == 'UAV-CHARLIE-1' ? const Color(0xFF38FF9C) : const Color(0xFF00D4FF),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: const Icon(Icons.flight, color: Colors.black, size: 24),
             ),
-            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
         ),
-        // Fourth drone (blue)
+        // Fourth drone (blue) - UAV-DELTA-1
         Marker(
           point: drone4Position,
           width: 40,
           height: 40,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D4FF),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedDroneName = selectedDroneName == 'UAV-DELTA-1' ? null : 'UAV-DELTA-1';
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: selectedDroneName == 'UAV-DELTA-1' ? const Color(0xFF38FF9C) : const Color(0xFF00D4FF),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: const Icon(Icons.flight, color: Colors.black, size: 24),
             ),
-            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
         ),
-        // Fifth drone (blue)
+        // Fifth drone (blue) - UAV-ECHO-1
         Marker(
           point: drone5Position,
           width: 40,
           height: 40,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF00D4FF),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
-              ],
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedDroneName = selectedDroneName == 'UAV-ECHO-1' ? null : 'UAV-ECHO-1';
+              });
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: selectedDroneName == 'UAV-ECHO-1' ? const Color(0xFF38FF9C) : const Color(0xFF00D4FF),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
+              ),
+              child: const Icon(Icons.flight, color: Colors.black, size: 24),
             ),
-            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
         ),
       ]);
@@ -806,18 +954,19 @@ class _OverviewScreenState extends State<OverviewScreen> {
   }
 
   Widget _hazardousZonesLayer() {
-    if (userLocationZone == null) return const SizedBox.shrink();
-    
-    return MarkerLayer(
-      markers: [
+    List<Marker> markers = [];
+
+    // Add red zone (dangerous)
+    if (redZone != null) {
+      markers.add(
         Marker(
-          point: userLocationZone!.center,
+          point: redZone!.center,
           width: 150,
           height: 150,
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D4F).withOpacity(userLocationZone!.detected ? 0.6 : 0.2),
+              color: const Color(0xFFFF4D4F).withOpacity(redZone!.detected ? 0.6 : 0.2),
               border: Border.all(
                 color: const Color(0xFFFF4D4F),
                 width: 2,
@@ -825,8 +974,32 @@ class _OverviewScreenState extends State<OverviewScreen> {
             ),
           ),
         ),
-      ],
-    );
+      );
+    }
+
+    // Add green zone (safe)
+    if (greenZone != null) {
+      markers.add(
+        Marker(
+          point: greenZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF38FF9C).withOpacity(greenZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFF38FF9C),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
   }
 
   Widget _currentLocationMarker() {
@@ -981,6 +1154,7 @@ class HazardousZone {
   final String severity;
   final String substanceType;
   bool detected;
+  final Set<String> detectedByDrones;
 
   HazardousZone({
     required this.name,
@@ -989,5 +1163,6 @@ class HazardousZone {
     required this.severity,
     required this.substanceType,
     this.detected = false,
-  });
+    Set<String>? detectedByDrones,
+  }) : detectedByDrones = detectedByDrones ?? {};
 }
