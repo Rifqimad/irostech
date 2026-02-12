@@ -1,5 +1,8 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use, prefer_const_constructors
 
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:math';
@@ -19,7 +22,10 @@ import 'screens/planning_screen.dart';
 import 'screens/evacuation_screen.dart';
 import 'screens/settings_screen.dart';
 
-void main() {
+void main() async{
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+);
   runApp(const CbrnDashboardApp());
 }
 
