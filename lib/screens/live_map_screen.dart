@@ -227,8 +227,8 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
       markers: drones.map((drone) {
         return Marker(
           point: drone.position,
-          width: 48,
-          height: 48,
+          width: 40,
+          height: 40,
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFF00D4FF),
@@ -237,26 +237,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
                 BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
               ],
             ),
-            child: Stack(
-              children: [
-                const Icon(Icons.flight, color: Colors.black, size: 24),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.black,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${drone.battery}%',
-                      style: const TextStyle(color: Color(0xFF00D4FF), fontSize: 8, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
         );
       }).toList(),
@@ -291,9 +272,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
                   if (zone.detected)
                     const SizedBox(height: 4),
                   if (zone.detected)
-                    Text(
+                    const Text(
                       'DETECTED',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
