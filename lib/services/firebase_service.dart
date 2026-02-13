@@ -66,4 +66,37 @@ class FirebaseService {
       return Map<String, dynamic>.from(event.snapshot.value as Map);
     });
   }
+
+  // Update hazardous zone
+  Future<void> updateHazardousZone({
+    required String zoneId,
+    required String name,
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required String severity,
+    required String substanceType,
+    required bool detected,
+  }) async {
+    await _database.child('hazardousZones/$zoneId').set({
+      'name': name,
+      'lat': lat,
+      'lng': lng,
+      'radiusKm': radiusKm,
+      'severity': severity,
+      'substanceType': substanceType,
+      'detected': detected,
+      'lastUpdate': ServerValue.timestamp,
+    });
+  }
+
+  // Get hazardous zones stream
+  Stream<Map<String, dynamic>> getHazardousZones() {
+    return _database.child('hazardousZones').onValue.map((event) {
+      if (event.snapshot.value == null) {
+        return {};
+      }
+      return Map<String, dynamic>.from(event.snapshot.value as Map);
+    });
+  }
 }

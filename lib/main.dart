@@ -370,6 +370,29 @@ class _DashboardPageState extends State<DashboardPage> {
     // Removed automatic location fetch to avoid MapController error
   }
 
+  int _getScreenIndex(String section) {
+    switch (section) {
+      case 'overview':
+        return 0;
+      case 'live_map':
+        return 1;
+      case 'analysis':
+        return 2;
+      case 'substances':
+        return 3;
+      case 'intelligence':
+        return 4;
+      case 'planning':
+        return 5;
+      case 'evacuation':
+        return 6;
+      case 'settings':
+        return 7;
+      default:
+        return 0;
+    }
+  }
+
   @override
   void dispose() {
     commsController.dispose();
@@ -390,9 +413,42 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 _buildTopbar(),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: _buildSectionContent(isWide, unit),
+                  child: IndexedStack(
+                    index: _getScreenIndex(activeSection),
+                    children: [
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const OverviewScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const LiveMapScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const AnalysisScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const SubstancesScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const IntelligenceScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const PlanningScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const EvacuationScreen(),
+                      ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: const SettingsScreen(),
+                      ),
+                    ],
                   ),
                 ),
               ],

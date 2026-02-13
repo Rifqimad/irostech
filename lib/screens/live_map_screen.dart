@@ -15,7 +15,10 @@ class LiveMapScreen extends StatefulWidget {
   State<LiveMapScreen> createState() => _LiveMapScreenState();
 }
 
-class _LiveMapScreenState extends State<LiveMapScreen> {
+class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final MapController mapController = MapController();
   final LatLng defaultCenter = const LatLng(51.505, -0.09);
   LatLng? currentLocation;
@@ -34,6 +37,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   // Drone data
   final List<Drone> drones = [];
+  StreamSubscription<Map<String, dynamic>>? _droneSubscription;
+  
+  // Hazardous zones data
+  final List<HazardousZone> hazardousZones = [];
+  StreamSubscription<Map<String, dynamic>>? _zonesSubscription;
 
 
   final List<AlertItem> alertTimelineData = [
@@ -52,6 +60,62 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _listenToDroneUpdates();
+    _listenToZoneUpdates();
+  }
+
+  void _listenToDroneUpdates() {
+    _droneSubscription = FirebaseService().getDronePositions().listen((dronesData) {
+      if (dronesData.isEmpty) return;
+      
+      setState(() {
+        drones.clear();
+        dronesData.forEach((key, value) {
+          final droneData = Map<String, dynamic>.from(value);
+          drones.add(Drone(
+            id: droneData['id'] ?? 0,
+            name: droneData['name'] ?? 'Unknown',
+            position: LatLng(
+              (droneData['lat'] ?? 0.0).toDouble(),
+              (droneData['lng'] ?? 0.0).toDouble(),
+            ),
+            status: droneData['status'] ?? 'Unknown',
+            battery: droneData['battery'] ?? 0,
+          ));
+        });
+      });
+    });
+  }
+
+  void _listenToZoneUpdates() {
+    _zonesSubscription = FirebaseService().getHazardousZones().listen((zonesData) {
+      if (zonesData.isEmpty) return;
+      
+      setState(() {
+        hazardousZones.clear();
+        zonesData.forEach((key, value) {
+          final zoneData = Map<String, dynamic>.from(value);
+          hazardousZones.add(HazardousZone(
+            name: zoneData['name'] ?? 'Unknown Zone',
+            center: LatLng(
+              (zoneData['lat'] ?? 0.0).toDouble(),
+              (zoneData['lng'] ?? 0.0).toDouble(),
+            ),
+            radiusKm: (zoneData['radiusKm'] ?? 0.3).toDouble(),
+            severity: zoneData['severity'] ?? 'medium',
+            substanceType: zoneData['substanceType'] ?? 'unknown',
+            detected: zoneData['detected'] ?? false,
+          ));
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _droneSubscription?.cancel();
+    _zonesSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -83,39 +147,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
     setState(() {
       currentLocation = userLocation;
-      // Initialize drones around user's location
-      _initializeDrones(userLocation);
       // Move map to user's location
       mapController.move(userLocation, 16.0);
     });
   }
 
-  void _initializeDrones(LatLng userLocation) {
-    // Create 2 drones around the user's location
-    // Drone 1: ~500m northeast
-    final drone1 = Drone(
-      id: 1,
-      name: 'Drone Alpha',
-      position: LatLng(userLocation.latitude + 0.0045, userLocation.longitude + 0.0045),
-      status: 'Active',
-      battery: 85,
-    );
-    
-    // Drone 2: ~500m southwest
-    final drone2 = Drone(
-      id: 2,
-      name: 'Drone Bravo',
-      position: LatLng(userLocation.latitude - 0.0045, userLocation.longitude - 0.0045),
-      status: 'Active',
-      battery: 72,
-    );
-
-    drones.clear();
-    drones.addAll([drone1, drone2]);
-  }
+  // Removed _initializeDrones - now drones come from Firebase real-time
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // IMPORTANT untuk AutomaticKeepAliveClientMixin
     final bool isWide = MediaQuery.of(context).size.width >= 1100;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -145,6 +186,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
         options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
         children: [
           _tileLayer(),
+          if (hazardousZones.isNotEmpty) _hazardousZonesLayer(),
           if (currentLocation != null) _currentLocationMarker(),
           if (drones.isNotEmpty) _droneMarkers(),
         ],
@@ -214,6 +256,51 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _hazardousZonesLayer() {
+    return MarkerLayer(
+      markers: hazardousZones.map((zone) {
+        return Marker(
+          point: zone.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF4D4F).withOpacity(zone.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFF4D4F),
+                width: 2,
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.warning,
+                    color: Colors.white,
+                    size: zone.detected ? 32 : 24,
+                  ),
+                  if (zone.detected)
+                    const SizedBox(height: 4),
+                  if (zone.detected)
+                    Text(
+                      'DETECTED',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );
@@ -328,6 +415,24 @@ class Drone {
     required this.position,
     required this.status,
     required this.battery,
+  });
+}
+
+class HazardousZone {
+  final String name;
+  final LatLng center;
+  final double radiusKm;
+  final String severity;
+  final String substanceType;
+  final bool detected;
+
+  HazardousZone({
+    required this.name,
+    required this.center,
+    required this.radiusKm,
+    required this.severity,
+    required this.substanceType,
+    required this.detected,
   });
 }
 

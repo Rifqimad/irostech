@@ -24,7 +24,10 @@ class OverviewScreen extends StatefulWidget {
   State<OverviewScreen> createState() => _OverviewScreenState();
 }
 
-class _OverviewScreenState extends State<OverviewScreen> {
+class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final MapController mapController = MapController();
   final LatLng defaultCenter = const LatLng(51.505, -0.09);
   LatLng? currentLocation;
@@ -220,6 +223,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             dronePosition = dronePath[currentPathIndex];
           });
           _checkHazardousZones(dronePosition);
+          
+          // Push Drone 1 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 1,
+            name: 'Drone Alpha',
+            lat: dronePosition.latitude,
+            lng: dronePosition.longitude,
+            battery: 85 - (currentPathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           currentPathIndex = 0;
         }
@@ -230,6 +243,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone2Position = drone2Path[drone2PathIndex];
           });
           _checkHazardousZones(drone2Position);
+          
+          // Push Drone 2 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 2,
+            name: 'Drone Bravo',
+            lat: drone2Position.latitude,
+            lng: drone2Position.longitude,
+            battery: 72 - (drone2PathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           drone2PathIndex = 0;
         }
@@ -240,6 +263,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone3Position = drone3Path[drone3PathIndex];
           });
           _checkHazardousZones(drone3Position);
+          
+          // Push Drone 3 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 3,
+            name: 'Drone Charlie',
+            lat: drone3Position.latitude,
+            lng: drone3Position.longitude,
+            battery: 78 - (drone3PathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           drone3PathIndex = 0;
         }
@@ -250,6 +283,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone4Position = drone4Path[drone4PathIndex];
           });
           _checkHazardousZones(drone4Position);
+          
+          // Push Drone 4 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 4,
+            name: 'Drone Delta',
+            lat: drone4Position.latitude,
+            lng: drone4Position.longitude,
+            battery: 90 - (drone4PathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           drone4PathIndex = 0;
         }
@@ -260,6 +303,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone5Position = drone5Path[drone5PathIndex];
           });
           _checkHazardousZones(drone5Position);
+          
+          // Push Drone 5 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 5,
+            name: 'Drone Echo',
+            lat: drone5Position.latitude,
+            lng: drone5Position.longitude,
+            battery: 88 - (drone5PathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           drone5PathIndex = 0;
         }
@@ -271,6 +324,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             dronePosition = dronePath[currentPathIndex];
           });
           _checkHazardousZones(dronePosition);
+          
+          // Push Drone 1 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 1,
+            name: 'Drone Alpha',
+            lat: dronePosition.latitude,
+            lng: dronePosition.longitude,
+            battery: 85 - (currentPathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           currentPathIndex = 0;
         }
@@ -281,6 +344,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             drone2Position = drone2Path[drone2PathIndex];
           });
           _checkHazardousZones(drone2Position);
+          
+          // Push Drone 2 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 2,
+            name: 'Drone Bravo',
+            lat: drone2Position.latitude,
+            lng: drone2Position.longitude,
+            battery: 72 - (drone2PathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           drone2PathIndex = 0;
         }
@@ -292,6 +365,16 @@ class _OverviewScreenState extends State<OverviewScreen> {
             dronePosition = dronePath[currentPathIndex];
           });
           _checkHazardousZones(dronePosition);
+          
+          // Push Drone 1 to Firebase
+          FirebaseService().updateDronePosition(
+            droneId: 1,
+            name: 'Drone Alpha',
+            lat: dronePosition.latitude,
+            lng: dronePosition.longitude,
+            battery: 85 - (currentPathIndex ~/ 10),
+            status: 'Active',
+          );
         } else {
           currentPathIndex = 0;
         }
@@ -351,6 +434,18 @@ class _OverviewScreenState extends State<OverviewScreen> {
       if (distance <= userLocationZone!.radiusKm * 1000) {
         setState(() {
           userLocationZone!.detected = true;
+
+          // Update zona di Firebase
+          FirebaseService().updateHazardousZone(
+            zoneId: 'zone_user_location',
+            name: userLocationZone!.name,
+            lat: userLocationZone!.center.latitude,
+            lng: userLocationZone!.center.longitude,
+            radiusKm: userLocationZone!.radiusKm,
+            severity: userLocationZone!.severity,
+            substanceType: userLocationZone!.substanceType,
+            detected: true,
+          );
 
           // Add detected substance (Sarin - chemical agent)
           final now = DateTime.now();
@@ -414,6 +509,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // IMPORTANT untuk AutomaticKeepAliveClientMixin
     final bool isWide = MediaQuery.of(context).size.width >= 1100;
 
     if (isWide) {
@@ -484,6 +580,18 @@ class _OverviewScreenState extends State<OverviewScreen> {
       severity: 'critical',
       substanceType: 'chemical',
       detected: false,
+    );
+
+    // Push zona ke Firebase
+    FirebaseService().updateHazardousZone(
+      zoneId: 'zone_user_location',
+      name: userLocationZone!.name,
+      lat: userLocationZone!.center.latitude,
+      lng: userLocationZone!.center.longitude,
+      radiusKm: userLocationZone!.radiusKm,
+      severity: userLocationZone!.severity,
+      substanceType: userLocationZone!.substanceType,
+      detected: userLocationZone!.detected,
     );
 
     // Move map to user's location
