@@ -21,6 +21,8 @@ import 'screens/intelligence_screen.dart';
 import 'screens/planning_screen.dart';
 import 'screens/evacuation_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 
 void main() async{
   await Firebase.initializeApp(
@@ -47,7 +49,12 @@ class CbrnDashboardApp extends StatelessWidget {
           error: Color(0xFFFF4D4F),
         ),
       ),
-      home: const DashboardPage(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(),
+        '/home': (context) => const DashboardPage(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }

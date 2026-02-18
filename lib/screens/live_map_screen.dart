@@ -1,6 +1,7 @@
 // lib/screens/live_map_screen.dart
 
 import 'dart:async';
+import 'dart:math' as math;
 import '../services/firebase_service.dart';
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,23 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   LatLng drone3Position = const LatLng(51.505, -0.09);
   LatLng drone4Position = const LatLng(51.505, -0.09);
   LatLng drone5Position = const LatLng(51.505, -0.09);
+
+  // Drone path variables
+  List<LatLng> dronePath = [];
+  int currentPathIndex = 0;
+  Timer? _pathTimer;
+
+  List<LatLng> drone2Path = [];
+  int drone2PathIndex = 0;
+
+  List<LatLng> drone3Path = [];
+  int drone3PathIndex = 0;
+
+  List<LatLng> drone4Path = [];
+  int drone4PathIndex = 0;
+
+  List<LatLng> drone5Path = [];
+  int drone5PathIndex = 0;
 
   // Hazardous zones
   HazardousZone? redZone;
@@ -84,16 +102,38 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
         drones.clear();
         dronesData.forEach((key, value) {
           final droneData = Map<String, dynamic>.from(value);
+          final droneId = droneData['id'] ?? 0;
+          final position = LatLng(
+            (droneData['lat'] ?? 0.0).toDouble(),
+            (droneData['lng'] ?? 0.0).toDouble(),
+          );
+          
           drones.add(Drone(
-            id: droneData['id'] ?? 0,
+            id: droneId,
             name: droneData['name'] ?? 'Unknown',
-            position: LatLng(
-              (droneData['lat'] ?? 0.0).toDouble(),
-              (droneData['lng'] ?? 0.0).toDouble(),
-            ),
+            position: position,
             status: droneData['status'] ?? 'Unknown',
             battery: droneData['battery'] ?? 0,
           ));
+
+          // Update individual drone position variables based on drone ID
+          switch (droneId) {
+            case 1:
+              dronePosition = position;
+              break;
+            case 2:
+              drone2Position = position;
+              break;
+            case 3:
+              drone3Position = position;
+              break;
+            case 4:
+              drone4Position = position;
+              break;
+            case 5:
+              drone5Position = position;
+              break;
+          }
         });
       });
     });
@@ -121,13 +161,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
         });
       });
     });
-  }
-
-  @override
-  void dispose() {
-    _droneSubscription?.cancel();
-    _zonesSubscription?.cancel();
-    super.dispose();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -202,9 +235,20 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
         detected: false,
       );
     });
+
+    // Initialize drone positions (animation controlled by overview screen)
+    _initializeDronePositions(userLocation);
   }
 
-<<<<<<< HEAD
+  void _initializeDronePositions(LatLng userLocation) {
+    // Set initial drone positions around user's location
+    dronePosition = LatLng(userLocation.latitude + 0.002, userLocation.longitude + 0.002);
+    drone2Position = LatLng(userLocation.latitude - 0.002, userLocation.longitude - 0.002);
+    drone3Position = LatLng(userLocation.latitude + 0.004, userLocation.longitude + 0.004);
+    drone4Position = LatLng(userLocation.latitude - 0.004, userLocation.longitude + 0.004);
+    drone5Position = LatLng(userLocation.latitude + 0.004, userLocation.longitude - 0.004);
+  }
+
   void _initializeDrones(LatLng userLocation) {
     // Create 5 drones around user's location
     // Drone 1: ~500m northeast
@@ -255,9 +299,154 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     drones.clear();
     drones.addAll([drone1, drone2, drone3, drone4, drone5]);
   }
-=======
-  // Removed _initializeDrones - now drones come from Firebase real-time
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
+
+  List<LatLng> _generatePath(String pattern, LatLng center, {int offsetIndex = 0}) {
+    List<LatLng> path = [];
+    final double latStep = 0.001;
+    final double lngStep = 0.001;
+
+    // Offset based on drone index (creates different paths for each drone)
+    final double offsetLat = offsetIndex * 0.002;
+    final double offsetLng = offsetIndex * 0.002;
+
+    switch (pattern) {
+      case 'Grid':
+        // Grid pattern - back and forth
+        if (offsetIndex % 2 == 1) {
+          // Odd index drones - different grid pattern (vertical instead of horizontal)
+          for (int i = 0; i < 5; i++) {
+            path.add(LatLng(center.latitude + offsetLat, center.longitude + i * lngStep + offsetLng));
+            path.add(LatLng(center.latitude + 4 * latStep + offsetLat, center.longitude + i * lngStep + offsetLng));
+            if (i < 4) {
+              path.add(LatLng(center.latitude + 4 * latStep + offsetLat, center.longitude + (i + 1) * lngStep + offsetLng));
+              path.add(LatLng(center.latitude + offsetLat, center.longitude + (i + 1) * lngStep + offsetLng));
+            }
+          }
+        } else {
+          // Even index drones - horizontal grid
+          for (int i = 0; i < 5; i++) {
+            path.add(LatLng(center.latitude + i * latStep + offsetLat, center.longitude + offsetLng));
+            path.add(LatLng(center.latitude + i * latStep + offsetLat, center.longitude + 4 * lngStep + offsetLng));
+            if (i < 4) {
+              path.add(LatLng(center.latitude + (i + 1) * latStep + offsetLat, center.longitude + 4 * lngStep + offsetLng));
+              path.add(LatLng(center.latitude + (i + 1) * latStep + offsetLat, center.longitude + offsetLng));
+            }
+          }
+        }
+        break;
+      case 'Spiral':
+        // Spiral pattern - expanding circle
+        for (int i = 0; i < 50; i++) {
+          double angle = (offsetIndex % 2 == 1 ? -1 : 1) * i * 0.3;
+          double radius = 0.002 + (i * 0.0003);
+          path.add(LatLng(
+            center.latitude + radius * math.cos(angle) + offsetLat,
+            center.longitude + radius * math.sin(angle) + offsetLng,
+          ));
+        }
+        break;
+      case 'Random':
+        // Random pattern - pseudo random waypoints
+        path.add(LatLng(center.latitude + offsetLat, center.longitude + offsetLng));
+        for (int i = 0; i < 20; i++) {
+          if (offsetIndex % 2 == 1) {
+            // Odd index drones - different random pattern
+            path.add(LatLng(
+              center.latitude + (i * 0.0005) + (i % 2 == 0 ? 0.003 : -0.002) + offsetLat,
+              center.longitude + (i * 0.0005) + (i % 3 == 0 ? -0.003 : 0.002) + offsetLng,
+            ));
+          } else {
+            // Even index drones - normal random
+            path.add(LatLng(
+              center.latitude + (i * 0.0005) + (i % 3 == 0 ? 0.002 : -0.001) + offsetLat,
+              center.longitude + (i * 0.0005) + (i % 5 == 0 ? 0.003 : -0.002) + offsetLng,
+            ));
+          }
+        }
+        break;
+      default:
+        path.add(LatLng(center.latitude + offsetLat, center.longitude + offsetLng));
+    }
+
+    return path;
+  }
+
+  void _startDroneAnimation() {
+    _pathTimer?.cancel();
+    
+    // Generate paths for all 5 drones
+    final center = currentLocation ?? defaultCenter;
+    dronePath = _generatePath('Spiral', dronePosition, offsetIndex: 0);
+    currentPathIndex = 0;
+
+    drone2Path = _generatePath('Spiral', drone2Position, offsetIndex: 1);
+    drone2PathIndex = 0;
+
+    drone3Path = _generatePath('Spiral', drone3Position, offsetIndex: 2);
+    drone3PathIndex = 0;
+
+    drone4Path = _generatePath('Spiral', drone4Position, offsetIndex: 3);
+    drone4PathIndex = 0;
+
+    drone5Path = _generatePath('Spiral', drone5Position, offsetIndex: 4);
+    drone5PathIndex = 0;
+
+    _pathTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      // Animate all 5 drones
+      if (currentPathIndex < dronePath.length - 1) {
+        setState(() {
+          currentPathIndex++;
+          dronePosition = dronePath[currentPathIndex];
+        });
+      } else {
+        currentPathIndex = 0;
+      }
+
+      if (drone2PathIndex < drone2Path.length - 1) {
+        setState(() {
+          drone2PathIndex++;
+          drone2Position = drone2Path[drone2PathIndex];
+        });
+      } else {
+        drone2PathIndex = 0;
+      }
+
+      if (drone3PathIndex < drone3Path.length - 1) {
+        setState(() {
+          drone3PathIndex++;
+          drone3Position = drone3Path[drone3PathIndex];
+        });
+      } else {
+        drone3PathIndex = 0;
+      }
+
+      if (drone4PathIndex < drone4Path.length - 1) {
+        setState(() {
+          drone4PathIndex++;
+          drone4Position = drone4Path[drone4PathIndex];
+        });
+      } else {
+        drone4PathIndex = 0;
+      }
+
+      if (drone5PathIndex < drone5Path.length - 1) {
+        setState(() {
+          drone5PathIndex++;
+          drone5Position = drone5Path[drone5PathIndex];
+        });
+      } else {
+        drone5PathIndex = 0;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _droneSubscription?.cancel();
+    _zonesSubscription?.cancel();
+    _pathTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -289,25 +478,19 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
       borderRadius: BorderRadius.circular(16),
       child: Stack(
         children: [
-<<<<<<< HEAD
           FlutterMap(
             mapController: mapController,
             options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
             children: [
               _tileLayer(),
+              if (showTrails) _pathLayer(),
               if (currentLocation != null) _currentLocationMarker(),
-              if (drones.isNotEmpty) _droneMarkers(),
-              if (redZone != null || greenZone != null) _hazardousZonesLayer(),
+              _droneMarkers(),
+              if (redZone != null || greenZone != null || lowRiskZone != null || mediumRiskZone != null) _hazardousZonesLayer(),
             ],
           ),
           Positioned(top: 16, right: 16, child: _mapControls()),
           Positioned(bottom: 16, left: 16, child: _zoomButtons()),
-=======
-          _tileLayer(),
-          if (hazardousZones.isNotEmpty) _hazardousZonesLayer(),
-          if (currentLocation != null) _currentLocationMarker(),
-          if (drones.isNotEmpty) _droneMarkers(),
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         ],
       ),
     );
@@ -319,6 +502,48 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
       subdomains: ['a', 'b', 'c'],
       userAgentPackageName: 'com.example.cbrn4',
     );
+  }
+
+  Widget _pathLayer() {
+    List<Polyline> polylines = [
+      // First drone path
+      if (dronePath.length > 1)
+        Polyline(
+          points: dronePath,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+      // Second drone path
+      if (drone2Path.length > 1)
+        Polyline(
+          points: drone2Path,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+      // Third drone path
+      if (drone3Path.length > 1)
+        Polyline(
+          points: drone3Path,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+      // Fourth drone path
+      if (drone4Path.length > 1)
+        Polyline(
+          points: drone4Path,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+      // Fifth drone path
+      if (drone5Path.length > 1)
+        Polyline(
+          points: drone5Path,
+          strokeWidth: 3,
+          color: const Color(0xFF00D4FF).withOpacity(0.6),
+        ),
+    ];
+
+    return PolylineLayer(polylines: polylines);
   }
 
   Widget _currentLocationMarker() {
@@ -345,9 +570,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
 
   Widget _droneMarkers() {
     return MarkerLayer(
-      markers: drones.map((drone) {
-        return Marker(
-          point: drone.position,
+      markers: [
+        // First drone
+        Marker(
+          point: dronePosition,
           width: 40,
           height: 40,
           child: Container(
@@ -360,54 +586,75 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
             ),
             child: const Icon(Icons.flight, color: Colors.black, size: 24),
           ),
-        );
-      }).toList(),
+        ),
+        // Second drone
+        Marker(
+          point: drone2Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+        // Third drone
+        Marker(
+          point: drone3Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+        // Fourth drone
+        Marker(
+          point: drone4Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+        // Fifth drone
+        Marker(
+          point: drone5Position,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D4FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: const Icon(Icons.flight, color: Colors.black, size: 24),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _hazardousZonesLayer() {
-    return MarkerLayer(
-      markers: hazardousZones.map((zone) {
-        return Marker(
-          point: zone.center,
-          width: 150,
-          height: 150,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFF4D4F).withOpacity(zone.detected ? 0.6 : 0.2),
-              border: Border.all(
-                color: const Color(0xFFFF4D4F),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.warning,
-                    color: Colors.white,
-                    size: zone.detected ? 32 : 24,
-                  ),
-                  if (zone.detected)
-                    const SizedBox(height: 4),
-                  if (zone.detected)
-                    const Text(
-                      'DETECTED',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ));
-      }).toList(),
-    );
-  }
 
   Widget _zoomButtons() {
     return Container(
@@ -789,24 +1036,6 @@ class Drone {
   });
 }
 
-class HazardousZone {
-  final String name;
-  final LatLng center;
-  final double radiusKm;
-  final String severity;
-  final String substanceType;
-  final bool detected;
-
-  HazardousZone({
-    required this.name,
-    required this.center,
-    required this.radiusKm,
-    required this.severity,
-    required this.substanceType,
-    required this.detected,
-  });
-}
-
 class _SeverityRow extends StatelessWidget {
   final String label, value, severity;
   const _SeverityRow({required this.label, required this.value, required this.severity});
@@ -880,7 +1109,6 @@ class _TimelineRow extends StatelessWidget {
       ),
     );
   }
-<<<<<<< HEAD
 }
 
 class HazardousZone {
@@ -902,6 +1130,3 @@ class HazardousZone {
     Set<String>? detectedByDrones,
   }) : detectedByDrones = detectedByDrones ?? {};
 }
-=======
-}
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838

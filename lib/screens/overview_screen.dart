@@ -67,9 +67,11 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
   LatLng drone5Position = const LatLng(51.505, -0.09);
   final List<DetectedSubstance> detectedSubstances = [];
 
-  // Hazardous zones (red = dangerous, green = safe)
+  // Hazardous zones
   HazardousZone? redZone;
   HazardousZone? greenZone;
+  HazardousZone? lowRiskZone;
+  HazardousZone? mediumRiskZone;
 
   // Recent activity log
   final List<ActivityLog> activityLog = [];
@@ -101,6 +103,48 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
 
         drone5Path = _generatePath(selectedMovement, drone5Position, offsetIndex: 4);
         drone5PathIndex = 0;
+
+        // Initialize Firebase with initial drone positions
+        FirebaseService().updateDronePosition(
+          droneId: 1,
+          name: 'UAV-ALPHA-1',
+          lat: dronePosition.latitude,
+          lng: dronePosition.longitude,
+          battery: 98,
+          status: 'Active',
+        );
+        FirebaseService().updateDronePosition(
+          droneId: 2,
+          name: 'UGV-DELTA-2',
+          lat: drone2Position.latitude,
+          lng: drone2Position.longitude,
+          battery: 85,
+          status: 'Active',
+        );
+        FirebaseService().updateDronePosition(
+          droneId: 3,
+          name: 'UAV-CHARLIE-1',
+          lat: drone3Position.latitude,
+          lng: drone3Position.longitude,
+          battery: 92,
+          status: 'Active',
+        );
+        FirebaseService().updateDronePosition(
+          droneId: 4,
+          name: 'UAV-DELTA-1',
+          lat: drone4Position.latitude,
+          lng: drone4Position.longitude,
+          battery: 88,
+          status: 'Active',
+        );
+        FirebaseService().updateDronePosition(
+          droneId: 5,
+          name: 'UAV-ECHO-1',
+          lat: drone5Position.latitude,
+          lng: drone5Position.longitude,
+          battery: 95,
+          status: 'Active',
+        );
       } else if (selectedOpMode == 'Multi-Drone Surveillance' || selectedOpMode == 'Advanced Mixed Operations') {
         // 2 drones mode
         dronePath = _generatePath(selectedMovement, dronePosition, offsetIndex: 0);
@@ -108,10 +152,38 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
 
         drone2Path = _generatePath(selectedMovement, drone2Position, offsetIndex: 1);
         drone2PathIndex = 0;
+
+        // Initialize Firebase with initial drone positions
+        FirebaseService().updateDronePosition(
+          droneId: 1,
+          name: 'UAV-ALPHA-1',
+          lat: dronePosition.latitude,
+          lng: dronePosition.longitude,
+          battery: 98,
+          status: 'Active',
+        );
+        FirebaseService().updateDronePosition(
+          droneId: 2,
+          name: 'UGV-DELTA-2',
+          lat: drone2Position.latitude,
+          lng: drone2Position.longitude,
+          battery: 85,
+          status: 'Active',
+        );
       } else {
         // Manual mode: only first drone
         dronePath = _generatePath(selectedMovement, dronePosition, offsetIndex: 0);
         currentPathIndex = 0;
+
+        // Initialize Firebase with initial drone position
+        FirebaseService().updateDronePosition(
+          droneId: 1,
+          name: 'UAV-ALPHA-1',
+          lat: dronePosition.latitude,
+          lng: dronePosition.longitude,
+          battery: 98,
+          status: 'Active',
+        );
       }
     });
     _startTimer();
@@ -226,21 +298,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
-=======
-          _checkHazardousZones(dronePosition);
-          
-          // Push Drone 1 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 1,
-            name: 'Drone Alpha',
+            name: 'UAV-ALPHA-1',
             lat: dronePosition.latitude,
             lng: dronePosition.longitude,
-            battery: 85 - (currentPathIndex ~/ 10),
+            battery: 98,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           currentPathIndex = 0;
         }
@@ -250,21 +316,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             drone2PathIndex++;
             drone2Position = drone2Path[drone2PathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(drone2Position, 'UGV-DELTA-2');
-=======
-          _checkHazardousZones(drone2Position);
-          
-          // Push Drone 2 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 2,
-            name: 'Drone Bravo',
+            name: 'UGV-DELTA-2',
             lat: drone2Position.latitude,
             lng: drone2Position.longitude,
-            battery: 72 - (drone2PathIndex ~/ 10),
+            battery: 85,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           drone2PathIndex = 0;
         }
@@ -274,21 +334,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             drone3PathIndex++;
             drone3Position = drone3Path[drone3PathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(drone3Position, 'UAV-CHARLIE-1');
-=======
-          _checkHazardousZones(drone3Position);
-          
-          // Push Drone 3 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 3,
-            name: 'Drone Charlie',
+            name: 'UAV-CHARLIE-1',
             lat: drone3Position.latitude,
             lng: drone3Position.longitude,
-            battery: 78 - (drone3PathIndex ~/ 10),
+            battery: 92,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           drone3PathIndex = 0;
         }
@@ -298,21 +352,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             drone4PathIndex++;
             drone4Position = drone4Path[drone4PathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(drone4Position, 'UAV-DELTA-1');
-=======
-          _checkHazardousZones(drone4Position);
-          
-          // Push Drone 4 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 4,
-            name: 'Drone Delta',
+            name: 'UAV-DELTA-1',
             lat: drone4Position.latitude,
             lng: drone4Position.longitude,
-            battery: 90 - (drone4PathIndex ~/ 10),
+            battery: 88,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           drone4PathIndex = 0;
         }
@@ -322,21 +370,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             drone5PathIndex++;
             drone5Position = drone5Path[drone5PathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(drone5Position, 'UAV-ECHO-1');
-=======
-          _checkHazardousZones(drone5Position);
-          
-          // Push Drone 5 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 5,
-            name: 'Drone Echo',
+            name: 'UAV-ECHO-1',
             lat: drone5Position.latitude,
             lng: drone5Position.longitude,
-            battery: 88 - (drone5PathIndex ~/ 10),
+            battery: 95,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           drone5PathIndex = 0;
         }
@@ -347,21 +389,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
-=======
-          _checkHazardousZones(dronePosition);
-          
-          // Push Drone 1 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 1,
-            name: 'Drone Alpha',
+            name: 'UAV-ALPHA-1',
             lat: dronePosition.latitude,
             lng: dronePosition.longitude,
-            battery: 85 - (currentPathIndex ~/ 10),
+            battery: 98,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           currentPathIndex = 0;
         }
@@ -371,21 +407,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             drone2PathIndex++;
             drone2Position = drone2Path[drone2PathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(drone2Position, 'UGV-DELTA-2');
-=======
-          _checkHazardousZones(drone2Position);
-          
-          // Push Drone 2 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 2,
-            name: 'Drone Bravo',
+            name: 'UGV-DELTA-2',
             lat: drone2Position.latitude,
             lng: drone2Position.longitude,
-            battery: 72 - (drone2PathIndex ~/ 10),
+            battery: 85,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           drone2PathIndex = 0;
         }
@@ -396,21 +426,15 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             currentPathIndex++;
             dronePosition = dronePath[currentPathIndex];
           });
-<<<<<<< HEAD
           _checkHazardousZones(dronePosition, 'UAV-ALPHA-1');
-=======
-          _checkHazardousZones(dronePosition);
-          
-          // Push Drone 1 to Firebase
           FirebaseService().updateDronePosition(
             droneId: 1,
-            name: 'Drone Alpha',
+            name: 'UAV-ALPHA-1',
             lat: dronePosition.latitude,
             lng: dronePosition.longitude,
-            battery: 85 - (currentPathIndex ~/ 10),
+            battery: 98,
             status: 'Active',
           );
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
         } else {
           currentPathIndex = 0;
         }
@@ -446,7 +470,68 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       drone5Path = [];
       drone5PathIndex = 0;
       drone5Position = LatLng(center.latitude + 0.004, center.longitude - 0.004);
+      
+      // Reset hazardous zones
+      if (redZone != null) {
+        redZone!.detected = false;
+        redZone!.detectedByDrones.clear();
+      }
+      if (greenZone != null) {
+        greenZone!.detected = false;
+        greenZone!.detectedByDrones.clear();
+      }
+      if (lowRiskZone != null) {
+        lowRiskZone!.detected = false;
+        lowRiskZone!.detectedByDrones.clear();
+      }
+      if (mediumRiskZone != null) {
+        mediumRiskZone!.detected = false;
+        mediumRiskZone!.detectedByDrones.clear();
+      }
     });
+
+    // Update Firebase with final drone positions (Standby status)
+    FirebaseService().updateDronePosition(
+      droneId: 1,
+      name: 'UAV-ALPHA-1',
+      lat: dronePosition.latitude,
+      lng: dronePosition.longitude,
+      battery: 98,
+      status: 'Standby',
+    );
+    FirebaseService().updateDronePosition(
+      droneId: 2,
+      name: 'UGV-DELTA-2',
+      lat: drone2Position.latitude,
+      lng: drone2Position.longitude,
+      battery: 85,
+      status: 'Standby',
+    );
+    FirebaseService().updateDronePosition(
+      droneId: 3,
+      name: 'UAV-CHARLIE-1',
+      lat: drone3Position.latitude,
+      lng: drone3Position.longitude,
+      battery: 92,
+      status: 'Standby',
+    );
+    FirebaseService().updateDronePosition(
+      droneId: 4,
+      name: 'UAV-DELTA-1',
+      lat: drone4Position.latitude,
+      lng: drone4Position.longitude,
+      battery: 88,
+      status: 'Standby',
+    );
+    FirebaseService().updateDronePosition(
+      droneId: 5,
+      name: 'UAV-ECHO-1',
+      lat: drone5Position.latitude,
+      lng: drone5Position.longitude,
+      battery: 95,
+      status: 'Standby',
+    );
+
     _missionTimer?.cancel();
     _pathTimer?.cancel();
     _missionTimer = null;
@@ -468,22 +553,6 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           redZone!.detected = true;
           redZone!.detectedByDrones.add(droneName);
 
-<<<<<<< HEAD
-=======
-          // Update zona di Firebase
-          FirebaseService().updateHazardousZone(
-            zoneId: 'zone_user_location',
-            name: userLocationZone!.name,
-            lat: userLocationZone!.center.latitude,
-            lng: userLocationZone!.center.longitude,
-            radiusKm: userLocationZone!.radiusKm,
-            severity: userLocationZone!.severity,
-            substanceType: userLocationZone!.substanceType,
-            detected: true,
-          );
-
-          // Add detected substance (Sarin - chemical agent)
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
           final now = DateTime.now();
           final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
@@ -536,6 +605,82 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
         });
       }
     }
+
+    // Check low risk zone (yellow)
+    if (lowRiskZone != null) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        lowRiskZone!.center.latitude,
+        lowRiskZone!.center.longitude,
+      );
+
+      if (distance <= lowRiskZone!.radiusKm * 1000 && !lowRiskZone!.detectedByDrones.contains(droneName)) {
+        setState(() {
+          lowRiskZone!.detected = true;
+          lowRiskZone!.detectedByDrones.add(droneName);
+
+          final now = DateTime.now();
+          final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+          detectedSubstances.add(DetectedSubstance(
+            name: 'Mild Chemical',
+            type: 'chemical',
+            lat: lowRiskZone!.center.latitude,
+            lng: lowRiskZone!.center.longitude,
+            severity: 'low',
+            time: timeStr,
+          ));
+
+          activityLog.insert(
+            0,
+            ActivityLog(
+              message: '$droneName detected low risk zone: ${lowRiskZone!.name}',
+              type: 'warning',
+              time: timeStr,
+            ),
+          );
+        });
+      }
+    }
+
+    // Check high risk zone (orange)
+    if (mediumRiskZone != null) {
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        mediumRiskZone!.center.latitude,
+        mediumRiskZone!.center.longitude,
+      );
+
+      if (distance <= mediumRiskZone!.radiusKm * 1000 && !mediumRiskZone!.detectedByDrones.contains(droneName)) {
+        setState(() {
+          mediumRiskZone!.detected = true;
+          mediumRiskZone!.detectedByDrones.add(droneName);
+
+          final now = DateTime.now();
+          final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+          detectedSubstances.add(DetectedSubstance(
+            name: 'Hazardous Chemical',
+            type: 'chemical',
+            lat: mediumRiskZone!.center.latitude,
+            lng: mediumRiskZone!.center.longitude,
+            severity: 'high',
+            time: timeStr,
+          ));
+
+          activityLog.insert(
+            0,
+            ActivityLog(
+              message: '$droneName detected high risk zone: ${mediumRiskZone!.name}',
+              type: 'critical',
+              time: timeStr,
+            ),
+          );
+        });
+      }
+    }
   }
 
   void _startTimer() {
@@ -555,6 +700,24 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       missionStatus = 'PAUSED';
     });
     _missionTimer?.cancel();
+
+    // Update Firebase with paused drone positions
+    FirebaseService().updateDronePosition(
+      droneId: 1,
+      name: 'UAV-ALPHA-1',
+      lat: dronePosition.latitude,
+      lng: dronePosition.longitude,
+      battery: 98,
+      status: 'Paused',
+    );
+    FirebaseService().updateDronePosition(
+      droneId: 2,
+      name: 'UGV-DELTA-2',
+      lat: drone2Position.latitude,
+      lng: drone2Position.longitude,
+      battery: 85,
+      status: 'Paused',
+    );
   }
 
   @override
@@ -645,7 +808,6 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       detected: false,
     );
 
-<<<<<<< HEAD
     // Create green zone (safe) further away from red zone
     greenZone = HazardousZone(
       name: 'Safe Zone',
@@ -654,18 +816,26 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       severity: 'safe',
       substanceType: 'none',
       detected: false,
-=======
-    // Push zona ke Firebase
-    FirebaseService().updateHazardousZone(
-      zoneId: 'zone_user_location',
-      name: userLocationZone!.name,
-      lat: userLocationZone!.center.latitude,
-      lng: userLocationZone!.center.longitude,
-      radiusKm: userLocationZone!.radiusKm,
-      severity: userLocationZone!.severity,
-      substanceType: userLocationZone!.substanceType,
-      detected: userLocationZone!.detected,
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
+    );
+
+    // Create low risk zone (yellow) - southwest
+    lowRiskZone = HazardousZone(
+      name: 'Low Risk Zone',
+      center: LatLng(userLocation.latitude - 0.003, userLocation.longitude - 0.003),
+      radiusKm: 0.3,
+      severity: 'low',
+      substanceType: 'mild_chemical',
+      detected: false,
+    );
+
+    // Create high risk zone (orange) - southeast
+    mediumRiskZone = HazardousZone(
+      name: 'High Risk Zone',
+      center: LatLng(userLocation.latitude - 0.003, userLocation.longitude + 0.003),
+      radiusKm: 0.3,
+      severity: 'high',
+      substanceType: 'hazardous_chemical',
+      detected: false,
     );
 
     // Move map to user's location
@@ -1145,6 +1315,48 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       );
     }
 
+    // Add low risk zone (yellow) - low risk
+    if (lowRiskZone != null) {
+      markers.add(
+        Marker(
+          point: lowRiskZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFFB020).withOpacity(lowRiskZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFFB020),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Add high risk zone (orange) - high risk
+    if (mediumRiskZone != null) {
+      markers.add(
+        Marker(
+          point: mediumRiskZone!.center,
+          width: 150,
+          height: 150,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF7A45).withOpacity(mediumRiskZone!.detected ? 0.6 : 0.2),
+              border: Border.all(
+                color: const Color(0xFFFF7A45),
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (markers.isEmpty) return const SizedBox.shrink();
     return MarkerLayer(markers: markers);
   }
@@ -1310,11 +1522,6 @@ class HazardousZone {
     required this.severity,
     required this.substanceType,
     this.detected = false,
-<<<<<<< HEAD
     Set<String>? detectedByDrones,
   }) : detectedByDrones = detectedByDrones ?? {};
 }
-=======
-  });
-}
->>>>>>> ecf38fdd09bf8d5b8afb458220aaf660a42fc838
