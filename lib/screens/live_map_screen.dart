@@ -1,6 +1,7 @@
 // lib/screens/live_map_screen.dart
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import '../services/firebase_service.dart';
 
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:share_plus/share_plus.dart';
 
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
@@ -35,6 +37,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   bool incidentMode = false;
   String timelineFilter = 'all';
   bool notificationSoundOn = true;
+  List<IncidentMarker> incidentMarkers = [];
 
   // Drone positions
   LatLng dronePosition = const LatLng(51.505, -0.09);
@@ -480,17 +483,56 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
         children: [
           FlutterMap(
             mapController: mapController,
-            options: MapOptions(initialCenter: currentLocation ?? defaultCenter, initialZoom: 16.0),
+            options: MapOptions(
+              initialCenter: currentLocation ?? defaultCenter,
+              initialZoom: 16.0,
+              onTap: incidentMode ? (tapPosition, point) => _handleMapTap(point) : null,
+            ),
             children: [
               _tileLayer(),
               if (showTrails) _pathLayer(),
               if (currentLocation != null) _currentLocationMarker(),
               _droneMarkers(),
+              if (incidentMarkers.isNotEmpty) _incidentMarkersLayer(),
               if (redZone != null || greenZone != null || lowRiskZone != null || mediumRiskZone != null) _hazardousZonesLayer(),
             ],
           ),
           Positioned(top: 16, right: 16, child: _mapControls()),
           Positioned(bottom: 16, left: 16, child: _zoomButtons()),
+          if (incidentMode)
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _getColorForSeverity(incidentSeverity).withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_location, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tap to add ${incidentSeverity.toUpperCase()} incident',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -791,6 +833,36 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
                       onChanged: (v) => setState(() => incidentSeverity = v ?? 'critical'),
                     ),
                     const SizedBox(height: 8),
+                    TextField(
+                      onChanged: (value) => setState(() => incidentNote = value),
+                      style: const TextStyle(color: Color(0xFFE6F4EE), fontSize: 12),
+                      decoration: InputDecoration(
+                        hintText: 'Add incident note (optional)',
+                        hintStyle: const TextStyle(color: Color(0xFF7C8B85), fontSize: 12),
+                        filled: true,
+                        fillColor: const Color(0xFF0A0F0D),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: const Color(0xFF1C2A24),
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF38FF9C),
+                            width: 1,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () => setState(() => incidentMode = !incidentMode),
                       style: ElevatedButton.styleFrom(
@@ -854,13 +926,13 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
                 child: Row(
                   children: [
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: _exportToJSON,
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
                       child: const Text('JSON'),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
+                      onPressed: _exportToCSV,
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1C2A24)),
                       child: const Text('CSV'),
                     ),
@@ -882,6 +954,241 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   void _handleTestAlert() {
     final now = DateTime.now();
     setState(() => notifications.insert(0, NotificationItem(id: now.millisecond, message: 'Test alert', time: '${now.hour}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}')));
+  }
+
+  Future<void> _exportToJSON() async {
+    final exportData = {
+      'exportDate': DateTime.now().toIso8601String(),
+      'alerts': alertTimelineData.map((a) => {
+        'id': a.id,
+        'severity': a.severity,
+        'message': a.message,
+        'time': a.time,
+      }).toList(),
+      'notifications': notifications.map((n) => {
+        'id': n.id,
+        'message': n.message,
+        'time': n.time,
+      }).toList(),
+      'drones': drones.map((d) => {
+        'id': d.id,
+        'name': d.name,
+        'position': {
+          'latitude': d.position.latitude,
+          'longitude': d.position.longitude,
+        },
+        'status': d.status,
+        'battery': d.battery,
+      }).toList(),
+      'hazardousZones': hazardousZones.map((z) => {
+        'name': z.name,
+        'center': {
+          'latitude': z.center.latitude,
+          'longitude': z.center.longitude,
+        },
+        'radiusKm': z.radiusKm,
+        'severity': z.severity,
+        'substanceType': z.substanceType,
+        'detected': z.detected,
+      }).toList(),
+      'incidents': incidentMarkers.map((i) => {
+        'id': i.id,
+        'position': {
+          'latitude': i.position.latitude,
+          'longitude': i.position.longitude,
+        },
+        'severity': i.severity,
+        'note': i.note,
+        'timestamp': i.timestamp.toIso8601String(),
+      }).toList(),
+      'userLocation': currentLocation != null ? {
+        'latitude': currentLocation!.latitude,
+        'longitude': currentLocation!.longitude,
+      } : null,
+    };
+
+    final jsonString = jsonEncode(exportData);
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    
+    await Share.share(
+      'CBRN4 Live Map Data Export\n\n$jsonString',
+      subject: 'CBRN4_Export_$timestamp.json',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Data exported to JSON format'),
+        backgroundColor: Color(0xFF38FF9C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportToCSV() async {
+    final buffer = StringBuffer();
+
+    // Write CSV header
+    buffer.writeln('Type,ID,Severity/Status,Message/Name,Time,Timestamp,Latitude,Longitude,Extra');
+
+    // Write alerts
+    for (var alert in alertTimelineData) {
+      buffer.writeln('Alert,${alert.id},${alert.severity},"${alert.message}",${alert.time},,,');
+    }
+
+    // Write notifications
+    for (var notification in notifications) {
+      buffer.writeln('Notification,${notification.id},,"${notification.message}",${notification.time},,,');
+    }
+
+    // Write drones
+    for (var drone in drones) {
+      buffer.writeln('Drone,${drone.id},${drone.status},"${drone.name}",,${drone.position.latitude},${drone.position.longitude},Battery: ${drone.battery}%');
+    }
+
+    // Write hazardous zones
+    for (var zone in hazardousZones) {
+      buffer.writeln('HazardousZone,${zone.name.hashCode},${zone.severity},"${zone.name}",,${zone.center.latitude},${zone.center.longitude},Radius: ${zone.radiusKm}km, Substance: ${zone.substanceType}');
+    }
+
+    // Write incidents
+    for (var incident in incidentMarkers) {
+      buffer.writeln('Incident,${incident.id},${incident.severity},"${incident.note}",,${incident.position.latitude},${incident.position.longitude},Timestamp: ${incident.timestamp.toIso8601String()}');
+    }
+
+    // Write user location
+    if (currentLocation != null) {
+      buffer.writeln('UserLocation,0,,"Current Location",,${currentLocation!.latitude},${currentLocation!.longitude},');
+    }
+
+    final csvString = buffer.toString();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    
+    await Share.share(
+      'CBRN4 Live Map Data Export (CSV)\n\n$csvString',
+      subject: 'CBRN4_Export_$timestamp.csv',
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Data exported to CSV format'),
+        backgroundColor: Color(0xFF38FF9C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  void _handleMapTap(LatLng position) {
+    if (!incidentMode) return;
+
+    // Create new incident
+    final now = DateTime.now();
+    final incident = IncidentMarker(
+      id: now.millisecondsSinceEpoch,
+      position: position,
+      severity: incidentSeverity,
+      note: incidentNote.isEmpty ? 'Incident reported' : incidentNote,
+      timestamp: now,
+    );
+
+    // Add to incident markers
+    setState(() {
+      incidentMarkers.add(incident);
+    });
+
+    // Add to alert timeline
+    final timeString = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    final alert = AlertItem(
+      id: incident.id,
+      severity: incidentSeverity,
+      message: incidentNote.isEmpty ? 'New incident reported' : incidentNote,
+      time: timeString,
+    );
+    setState(() {
+      alertTimelineData.insert(0, alert);
+    });
+
+    // Create hazardous zone based on severity
+    final zone = HazardousZone(
+      name: 'Incident Zone ${incidentMarkers.length}',
+      center: position,
+      radiusKm: _getRadiusForSeverity(incidentSeverity),
+      severity: incidentSeverity,
+      substanceType: _getSubstanceTypeForSeverity(incidentSeverity),
+      detected: true,
+    );
+
+    setState(() {
+      hazardousZones.add(zone);
+    });
+
+    // Turn off incident mode after adding
+    setState(() {
+      incidentMode = false;
+      incidentNote = '';
+    });
+
+    // Show notification
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Incident added at ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}'),
+        backgroundColor: _getColorForSeverity(incidentSeverity),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  double _getRadiusForSeverity(String severity) {
+    switch (severity) {
+      case 'critical':
+        return 0.5;
+      case 'high':
+        return 0.4;
+      case 'medium':
+        return 0.3;
+      case 'low':
+        return 0.2;
+      default:
+        return 0.3;
+    }
+  }
+
+  String _getSubstanceTypeForSeverity(String severity) {
+    switch (severity) {
+      case 'critical':
+        return 'hazardous_chemical';
+      case 'high':
+        return 'dangerous_material';
+      case 'medium':
+        return 'mild_chemical';
+      case 'low':
+        return 'suspicious_substance';
+      default:
+        return 'unknown';
+    }
+  }
+
+  Color _getColorForSeverity(String severity) {
+    switch (severity) {
+      case 'critical':
+        return const Color(0xFFFF4D4F);
+      case 'high':
+        return const Color(0xFFFF7A45);
+      case 'medium':
+        return const Color(0xFFFFB020);
+      case 'low':
+        return const Color(0xFF2F80ED);
+      default:
+        return const Color(0xFF38FF9C);
+    }
   }
 
   Widget _grid({required int columns, required List<Widget> children}) {
@@ -1007,6 +1314,145 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     if (markers.isEmpty) return const SizedBox.shrink();
     return MarkerLayer(markers: markers);
   }
+
+  Widget _incidentMarkersLayer() {
+    List<Marker> markers = [];
+
+    for (var incident in incidentMarkers) {
+      markers.add(
+        Marker(
+          point: incident.position,
+          width: 40,
+          height: 40,
+          child: GestureDetector(
+            onTap: () => _showIncidentDetails(incident),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _getColorForSeverity(incident.severity),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _getColorForSeverity(incident.severity).withOpacity(0.5),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.warning,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
+  }
+
+  void _showIncidentDetails(IncidentMarker incident) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF101915),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: _getColorForSeverity(incident.severity),
+            width: 2,
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _getColorForSeverity(incident.severity),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.warning,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Incident Details',
+              style: const TextStyle(
+                color: Color(0xFFE6F4EE),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Severity', incident.severity.toUpperCase()),
+            const SizedBox(height: 8),
+            _buildDetailRow('Note', incident.note),
+            const SizedBox(height: 8),
+            _buildDetailRow('Time', '${incident.timestamp.hour.toString().padLeft(2, '0')}:${incident.timestamp.minute.toString().padLeft(2, '0')}:${incident.timestamp.second.toString().padLeft(2, '0')}'),
+            const SizedBox(height: 8),
+            _buildDetailRow('Location', '${incident.position.latitude.toStringAsFixed(4)}, ${incident.position.longitude.toStringAsFixed(4)}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF38FF9C),
+            ),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                incidentMarkers.removeWhere((i) => i.id == incident.id);
+                alertTimelineData.removeWhere((a) => a.id == incident.id);
+                hazardousZones.removeWhere((z) => z.name.contains('Incident Zone'));
+              });
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF4D4F),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF7C8B85),
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFFE6F4EE),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class AlertItem {
@@ -1129,4 +1575,20 @@ class HazardousZone {
     this.detected = false,
     Set<String>? detectedByDrones,
   }) : detectedByDrones = detectedByDrones ?? {};
+}
+
+class IncidentMarker {
+  final int id;
+  final LatLng position;
+  final String severity;
+  final String note;
+  final DateTime timestamp;
+
+  IncidentMarker({
+    required this.id,
+    required this.position,
+    required this.severity,
+    required this.note,
+    required this.timestamp,
+  });
 }

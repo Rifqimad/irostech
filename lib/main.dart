@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'services/firebase_service.dart';
 import 'screens/overview_screen.dart';
 import 'screens/live_map_screen.dart';
 import 'screens/analysis_screen.dart';
@@ -72,6 +73,7 @@ enum DrawingMode { none, zone, evac }
 class _DashboardPageState extends State<DashboardPage> {
   final MapController mapController = MapController();
   final LatLng defaultCenter = const LatLng(51.505, -0.09);
+  final FirebaseService _firebaseService = FirebaseService();
   LatLng? currentLocation;
 
   String activeSection = 'overview';
@@ -400,6 +402,28 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    try {
+      await _firebaseService.signOut();
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFF4D4F),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     commsController.dispose();
@@ -584,6 +608,46 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
             onChanged: (value) => setState(() => role = value ?? 'commander'),
+          ),
+          const SizedBox(width: 16),
+          // User name display
+          if (_firebaseService.currentUser != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C2A24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF38FF9C)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.person,
+                    color: Color(0xFF38FF9C),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _firebaseService.currentUser?.displayName ?? 'User',
+                    style: const TextStyle(
+                      color: Color(0xFFE6F4EE),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+            style: IconButton.styleFrom(
+              backgroundColor: const Color(0xFF1C2A24),
+              foregroundColor: const Color(0xFF38FF9C),
+              padding: const EdgeInsets.all(12),
+            ),
           ),
         ],
       ),

@@ -67,6 +67,39 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
   LatLng drone5Position = const LatLng(51.505, -0.09);
   final List<DetectedSubstance> detectedSubstances = [];
 
+  // Battery levels for each drone
+  int drone1Battery = 98;
+  int drone2Battery = 85;
+  int drone3Battery = 92;
+  int drone4Battery = 88;
+  int drone5Battery = 95;
+
+  // Altitude and speed for each drone
+  int drone1Altitude = 320;
+  int drone2Altitude = 0;
+  int drone3Altitude = 280;
+  int drone4Altitude = 300;
+  int drone5Altitude = 340;
+
+  int drone1Speed = 41;
+  int drone2Speed = 12;
+  int drone3Speed = 38;
+  int drone4Speed = 40;
+  int drone5Speed = 42;
+
+  // System Health variables
+  double miniBtsHealth = 0.85;
+  double reconLinkHealth = 0.92;
+  double aiSystemsHealth = 0.78;
+  double encryptionHealth = 1.0;
+  double uavSwarmHealth = 0.95;
+  double ugvFleetHealth = 0.88;
+
+  // Area Status variables
+  int highRiskCount = 2;
+  int mediumRiskCount = 2;
+  int safeZoneCount = 8;
+
   // Hazardous zones
   HazardousZone? redZone;
   HazardousZone? greenZone;
@@ -110,7 +143,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-ALPHA-1',
           lat: dronePosition.latitude,
           lng: dronePosition.longitude,
-          battery: 98,
+          battery: drone1Battery,
           status: 'Active',
         );
         FirebaseService().updateDronePosition(
@@ -118,7 +151,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UGV-DELTA-2',
           lat: drone2Position.latitude,
           lng: drone2Position.longitude,
-          battery: 85,
+          battery: drone2Battery,
           status: 'Active',
         );
         FirebaseService().updateDronePosition(
@@ -126,7 +159,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-CHARLIE-1',
           lat: drone3Position.latitude,
           lng: drone3Position.longitude,
-          battery: 92,
+          battery: drone3Battery,
           status: 'Active',
         );
         FirebaseService().updateDronePosition(
@@ -134,7 +167,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-DELTA-1',
           lat: drone4Position.latitude,
           lng: drone4Position.longitude,
-          battery: 88,
+          battery: drone4Battery,
           status: 'Active',
         );
         FirebaseService().updateDronePosition(
@@ -142,7 +175,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-ECHO-1',
           lat: drone5Position.latitude,
           lng: drone5Position.longitude,
-          battery: 95,
+          battery: drone5Battery,
           status: 'Active',
         );
       } else if (selectedOpMode == 'Multi-Drone Surveillance' || selectedOpMode == 'Advanced Mixed Operations') {
@@ -159,7 +192,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-ALPHA-1',
           lat: dronePosition.latitude,
           lng: dronePosition.longitude,
-          battery: 98,
+          battery: drone1Battery,
           status: 'Active',
         );
         FirebaseService().updateDronePosition(
@@ -167,7 +200,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UGV-DELTA-2',
           lat: drone2Position.latitude,
           lng: drone2Position.longitude,
-          battery: 85,
+          battery: drone2Battery,
           status: 'Active',
         );
       } else {
@@ -181,7 +214,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           name: 'UAV-ALPHA-1',
           lat: dronePosition.latitude,
           lng: dronePosition.longitude,
-          battery: 98,
+          battery: drone1Battery,
           status: 'Active',
         );
       }
@@ -496,7 +529,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UAV-ALPHA-1',
       lat: dronePosition.latitude,
       lng: dronePosition.longitude,
-      battery: 98,
+      battery: drone1Battery,
       status: 'Standby',
     );
     FirebaseService().updateDronePosition(
@@ -504,7 +537,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UGV-DELTA-2',
       lat: drone2Position.latitude,
       lng: drone2Position.longitude,
-      battery: 85,
+      battery: drone2Battery,
       status: 'Standby',
     );
     FirebaseService().updateDronePosition(
@@ -512,7 +545,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UAV-CHARLIE-1',
       lat: drone3Position.latitude,
       lng: drone3Position.longitude,
-      battery: 92,
+      battery: drone3Battery,
       status: 'Standby',
     );
     FirebaseService().updateDronePosition(
@@ -520,7 +553,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UAV-DELTA-1',
       lat: drone4Position.latitude,
       lng: drone4Position.longitude,
-      battery: 88,
+      battery: drone4Battery,
       status: 'Standby',
     );
     FirebaseService().updateDronePosition(
@@ -528,7 +561,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UAV-ECHO-1',
       lat: drone5Position.latitude,
       lng: drone5Position.longitude,
-      battery: 95,
+      battery: drone5Battery,
       status: 'Standby',
     );
 
@@ -689,9 +722,133 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       if (mounted) {
         setState(() {
           missionSeconds++;
+          
+          // Update altitude and speed for active drones based on operation mode
+          if (isMissionRunning && !isMissionPaused) {
+            if (selectedOpMode == 'Advance UAV Swarm Operation') {
+              // All 5 drones active
+              _updateDroneTelemetry(1);
+              _updateDroneTelemetry(2);
+              _updateDroneTelemetry(3);
+              _updateDroneTelemetry(4);
+              _updateDroneTelemetry(5);
+            } else if (selectedOpMode == 'Multi-Drone Surveillance' || selectedOpMode == 'Advanced Mixed Operations') {
+              // 2 drones active
+              _updateDroneTelemetry(1);
+              _updateDroneTelemetry(2);
+            } else {
+              // Manual mode: only first drone active
+              _updateDroneTelemetry(1);
+            }
+            
+            // Update system health and area status during mission
+            _updateSystemHealth();
+            _updateAreaStatus();
+          } else {
+            // When paused or stopped, reset to standby values
+            _resetDroneTelemetry();
+          }
         });
       }
     });
+  }
+
+  void _updateDroneTelemetry(int droneId) {
+    switch (droneId) {
+      case 1:
+        if (drone1Battery > 0) drone1Battery--;
+        // Fluctuate altitude between 300-340m
+        drone1Altitude = 300 + (missionSeconds % 40);
+        // Fluctuate speed between 35-45 km/h
+        drone1Speed = 35 + (missionSeconds % 10);
+        break;
+      case 2:
+        if (drone2Battery > 0) drone2Battery--;
+        // Fluctuate altitude between 0-50m (UGV can go over small hills)
+        drone2Altitude = (missionSeconds % 50);
+        // Fluctuate speed between 8-15 km/h
+        drone2Speed = 8 + (missionSeconds % 7);
+        break;
+      case 3:
+        if (drone3Battery > 0) drone3Battery--;
+        // Fluctuate altitude between 260-300m
+        drone3Altitude = 260 + (missionSeconds % 40);
+        // Fluctuate speed between 32-42 km/h
+        drone3Speed = 32 + (missionSeconds % 10);
+        break;
+      case 4:
+        if (drone4Battery > 0) drone4Battery--;
+        // Fluctuate altitude between 280-320m
+        drone4Altitude = 280 + (missionSeconds % 40);
+        // Fluctuate speed between 34-44 km/h
+        drone4Speed = 34 + (missionSeconds % 10);
+        break;
+      case 5:
+        if (drone5Battery > 0) drone5Battery--;
+        // Fluctuate altitude between 320-360m
+        drone5Altitude = 320 + (missionSeconds % 40);
+        // Fluctuate speed between 36-46 km/h
+        drone5Speed = 36 + (missionSeconds % 10);
+        break;
+    }
+  }
+
+  void _resetDroneTelemetry() {
+    // Reset to standby values when paused or stopped
+    drone1Altitude = 320;
+    drone1Speed = 0;
+    drone2Altitude = 0;
+    drone2Speed = 0;
+    drone3Altitude = 280;
+    drone3Speed = 0;
+    drone4Altitude = 300;
+    drone4Speed = 0;
+    drone5Altitude = 340;
+    drone5Speed = 0;
+  }
+
+  void _updateSystemHealth() {
+    // Update system health values based on mission progress
+    // MINI BTS: fluctuates between 0.80-0.90
+    miniBtsHealth = 0.80 + ((missionSeconds % 10) / 100);
+    
+    // RECON LINK: fluctuates between 0.88-0.95
+    reconLinkHealth = 0.88 + ((missionSeconds % 7) / 100);
+    
+    // AI SYSTEMS: fluctuates between 0.70-0.85
+    aiSystemsHealth = 0.70 + ((missionSeconds % 15) / 100);
+    
+    // ENCRYPTION: stays at 1.0 (always optimal)
+    encryptionHealth = 1.0;
+    
+    // UAV SWARM: fluctuates between 0.90-0.98
+    uavSwarmHealth = 0.90 + ((missionSeconds % 8) / 100);
+    
+    // UGV FLEET: fluctuates between 0.82-0.92
+    ugvFleetHealth = 0.82 + ((missionSeconds % 10) / 100);
+  }
+
+  void _updateAreaStatus() {
+    // Update area status counts based on mission progress
+    // Simulate changing risk levels as mission progresses
+    final cycle = (missionSeconds % 30);
+    
+    if (cycle < 10) {
+      // Low risk period
+      highRiskCount = 1;
+      mediumRiskCount = 2;
+      safeZoneCount = 9;
+    } else if (cycle < 20) {
+      // Medium risk period
+      highRiskCount = 2;
+      mediumRiskCount = 3;
+      safeZoneCount = 7;
+    } else {
+      // High risk period
+      highRiskCount = 3;
+      mediumRiskCount = 2;
+      safeZoneCount = 7;
+    }
   }
 
   void _pauseMission() {
@@ -707,7 +864,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UAV-ALPHA-1',
       lat: dronePosition.latitude,
       lng: dronePosition.longitude,
-      battery: 98,
+      battery: drone1Battery,
       status: 'Paused',
     );
     FirebaseService().updateDronePosition(
@@ -715,7 +872,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
       name: 'UGV-DELTA-2',
       lat: drone2Position.latitude,
       lng: drone2Position.longitude,
-      battery: 85,
+      battery: drone2Battery,
       status: 'Paused',
     );
   }
@@ -884,11 +1041,11 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
           ])))),
           const SizedBox(width: 16),
           Expanded(child: _panel(title: 'AREA STATUS', child: SizedBox(height: 190, child: Column(children: [
-            _AreaStatusRow(label: 'High Risk', count: '2', percent: '12%', color: const Color(0xFFFF4D4F), value: 0.12),
+            _AreaStatusRow(label: 'High Risk', count: '$highRiskCount', percent: '${((highRiskCount / 12) * 100).toInt()}%', color: const Color(0xFFFF4D4F), value: highRiskCount / 12),
             const SizedBox(height: 12),
-            _AreaStatusRow(label: 'Medium Risk', count: '2', percent: '18%', color: const Color(0xFFFFB020), value: 0.18),
+            _AreaStatusRow(label: 'Medium Risk', count: '$mediumRiskCount', percent: '${((mediumRiskCount / 12) * 100).toInt()}%', color: const Color(0xFFFFB020), value: mediumRiskCount / 12),
             const SizedBox(height: 12),
-            _AreaStatusRow(label: 'Safe Zone', count: '8', percent: '70%', color: const Color(0xFF38FF9C), value: 0.70),
+            _AreaStatusRow(label: 'Safe Zone', count: '$safeZoneCount', percent: '${((safeZoneCount / 12) * 100).toInt()}%', color: const Color(0xFF38FF9C), value: safeZoneCount / 12),
           ])))),
         ]),
         const SizedBox(height: 16),
@@ -954,11 +1111,11 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
         ]),
         const SizedBox(height: 12),
         SizedBox(height: 140, child: Row(children: [
-          Expanded(child: _InfoUAVItem(name: 'UAV-ALPHA-1', type: 'UAV', status: 'Active', battery: '98%', altitude: '320 m', speed: '41 km/h')),
+          Expanded(child: _InfoUAVItem(name: 'UAV-ALPHA-1', type: 'UAV', status: isMissionRunning ? 'Active' : 'Standby', battery: '$drone1Battery%', altitude: '${isMissionRunning ? drone1Altitude : 320} m', speed: '${isMissionRunning ? drone1Speed : 0} km/h')),
           const SizedBox(width: 12),
-          Expanded(child: _InfoUAVItem(name: 'UGV-DELTA-2', type: 'UGV', status: 'Maintenance', battery: '85%', altitude: '0 m', speed: '12 km/h')),
+          Expanded(child: _InfoUAVItem(name: 'UGV-DELTA-2', type: 'UGV', status: isMissionRunning ? 'Active' : 'Standby', battery: '$drone2Battery%', altitude: '${isMissionRunning ? drone2Altitude : 0} m', speed: '${isMissionRunning ? drone2Speed : 0} km/h')),
           const SizedBox(width: 12),
-          Expanded(child: _InfoUAVItem(name: 'UAV-BRAVO-1', type: 'UAV', status: 'Active', battery: '92%', altitude: '280 m', speed: '38 km/h')),
+          Expanded(child: _InfoUAVItem(name: 'UAV-BRAVO-1', type: 'UAV', status: isMissionRunning ? 'Active' : 'Standby', battery: '$drone3Battery%', altitude: '${isMissionRunning ? drone3Altitude : 280} m', speed: '${isMissionRunning ? drone3Speed : 0} km/h')),
         ])),
       ]),
     );
@@ -966,6 +1123,18 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
 
   Widget _InfoUAVItem({required String name, required String type, required String status, required String battery, required String altitude, required String speed}) {
     Color statusColor = status == 'Active' ? const Color(0xFF38FF9C) : const Color(0xFFFFB020);
+    
+    // Parse battery value and determine color
+    final batteryValue = int.tryParse(battery.replaceAll('%', '')) ?? 100;
+    Color batteryColor;
+    if (batteryValue > 50) {
+      batteryColor = const Color(0xFF38FF9C); // Green
+    } else if (batteryValue > 20) {
+      batteryColor = const Color(0xFFFFB020); // Orange
+    } else {
+      batteryColor = const Color(0xFFFF4D4F); // Red
+    }
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(color: const Color(0xFF1C2A24), borderRadius: BorderRadius.circular(8)),
@@ -979,7 +1148,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
         Text('$type · $status', style: const TextStyle(fontSize: 11, color: Color(0xFF7C8B85))),
         const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Bat: $battery', style: const TextStyle(fontSize: 10, color: Color(0xFF7C8B85))),
+          Text('Bat: $battery', style: TextStyle(fontSize: 10, color: batteryColor, fontWeight: FontWeight.w600)),
           Text('Alt: $altitude', style: const TextStyle(fontSize: 10, color: Color(0xFF7C8B85))),
           Text('Spd: $speed', style: const TextStyle(fontSize: 10, color: Color(0xFF7C8B85))),
         ]),
@@ -1390,13 +1559,18 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
 
   Widget _buildTelemetryPanel() {
     final List<SystemComponent> components = [
-      SystemComponent(name: 'MINI BTS', value: 0.85, hasWarning: false),
-      SystemComponent(name: 'RECON LINK', value: 0.92, hasWarning: false),
-      SystemComponent(name: 'AI SYSTEMS', value: 0.78, hasWarning: true),
-      SystemComponent(name: 'ENCRYPTION', value: 1.0, hasWarning: false),
-      SystemComponent(name: 'UAV SWARM', value: 0.95, hasWarning: false),
-      SystemComponent(name: 'UGV FLEET', value: 0.88, hasWarning: false),
+      SystemComponent(name: 'MINI BTS', value: miniBtsHealth, hasWarning: miniBtsHealth < 0.82),
+      SystemComponent(name: 'RECON LINK', value: reconLinkHealth, hasWarning: reconLinkHealth < 0.90),
+      SystemComponent(name: 'AI SYSTEMS', value: aiSystemsHealth, hasWarning: aiSystemsHealth < 0.75),
+      SystemComponent(name: 'ENCRYPTION', value: encryptionHealth, hasWarning: encryptionHealth < 0.98),
+      SystemComponent(name: 'UAV SWARM', value: uavSwarmHealth, hasWarning: uavSwarmHealth < 0.92),
+      SystemComponent(name: 'UGV FLEET', value: ugvFleetHealth, hasWarning: ugvFleetHealth < 0.85),
     ];
+    
+    // Calculate overall health
+    final overallHealth = (miniBtsHealth + reconLinkHealth + aiSystemsHealth + encryptionHealth + uavSwarmHealth + ugvFleetHealth) / 6;
+    final healthStatus = overallHealth >= 0.90 ? 'OPTIMAL' : overallHealth >= 0.80 ? 'GOOD' : overallHealth >= 0.70 ? 'WARNING' : 'CRITICAL';
+    final healthColor = overallHealth >= 0.90 ? const Color(0xFF38FF9C) : overallHealth >= 0.80 ? const Color(0xFF2F80ED) : overallHealth >= 0.70 ? const Color(0xFFFFB020) : const Color(0xFFFF4D4F);
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1408,7 +1582,7 @@ class _OverviewScreenState extends State<OverviewScreen> with AutomaticKeepAlive
             const SizedBox(height: 4),
             const Text('Overall System Performance Indicator', style: TextStyle(fontSize: 12, color: Color(0xFF7C8B85))),
           ])),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0xFF38FF9C).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: const Text('OPTIMAL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF38FF9C)))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: healthColor.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text(healthStatus, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: healthColor))),
         ]),
         const SizedBox(height: 16),
         Column(children: components.map((comp) => _SystemHealthRow(name: comp.name, value: comp.value, hasWarning: comp.hasWarning)).toList()),

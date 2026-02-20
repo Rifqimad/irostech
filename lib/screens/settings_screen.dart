@@ -1,6 +1,7 @@
 // lib/screens/settings_screen.dart
 
 import 'package:flutter/material.dart';
+import '../services/firebase_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -10,6 +11,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final FirebaseService _firebaseService = FirebaseService();
   String role = 'commander';
   bool offlineMode = false;
   int syncQueue = 0;
@@ -20,7 +22,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = _firebaseService.currentUser;
+    
     return _grid(columns: 2, children: [
+      _panel(title: 'User Profile', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (currentUser != null) ...[
+          _ProfileRow(label: 'Name', value: currentUser.displayName ?? 'Not set'),
+          const SizedBox(height: 8),
+          _ProfileRow(label: 'Email', value: currentUser.email ?? 'Not set'),
+          const SizedBox(height: 8),
+          _ProfileRow(label: 'User ID', value: currentUser.uid),
+          const SizedBox(height: 8),
+          _ProfileRow(label: 'Email Verified', value: currentUser.emailVerified ? 'Yes' : 'No'),
+          const SizedBox(height: 8),
+          if (currentUser.metadata.creationTime != null)
+            _ProfileRow(label: 'Account Created', value: _formatDate(currentUser.metadata.creationTime!)),
+          const SizedBox(height: 8),
+          if (currentUser.metadata.lastSignInTime != null)
+            _ProfileRow(label: 'Last Sign In', value: _formatDate(currentUser.metadata.lastSignInTime!)),
+        ] else
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'No user logged in',
+              style: TextStyle(color: Color(0xFF7C8B85)),
+            ),
+          ),
+      ])),
       _panel(title: 'System Configuration', child: Column(children: const [
         _ListRow(label: 'Telemetry Refresh · 5s'),
         _ListRow(label: 'Map Cache · Enabled'),
@@ -44,6 +72,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ]);
   }
 
+  String _formatDate(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
   Widget _grid({required int columns, required List<Widget> children}) {
     return LayoutBuilder(builder: (context, constraints) {
       final width = constraints.maxWidth;
@@ -58,4 +90,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 class _ListRow extends StatelessWidget { final String label; const _ListRow({required this.label}); @override Widget build(BuildContext context) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(children: [Expanded(child: Text(label))])); }
+
+class _ProfileRow extends StatelessWidget {
+  final String label;
+  final String value;
+  
+  const _ProfileRow({required this.label, required this.value});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF7C8B85),
+              fontSize: 13,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFFE6F4EE),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class AuditEntry { final String time, action, actor; AuditEntry({required this.time, required this.action, required this.actor}); }

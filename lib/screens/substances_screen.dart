@@ -1,6 +1,13 @@
 // lib/screens/substances_screen.dart
 
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../services/file_download_helper.dart'
+    if (dart.library.html) '../services/file_download_helper_web.dart';
+import '../services/firebase_service.dart';
+import 'substance_management_screen.dart';
 
 class SubstancesScreen extends StatefulWidget {
   const SubstancesScreen({super.key});
@@ -12,97 +19,40 @@ class SubstancesScreen extends StatefulWidget {
 class _SubstancesScreenState extends State<SubstancesScreen> {
   String substanceFilter = 'all';
   String substanceSearch = '';
+  final FirebaseService _firebaseService = FirebaseService();
+  bool _isLoading = true;
+  List<SubstanceItem> _allSubstances = [];
 
-  final Map<String, List<SubstanceItem>> substanceDatabase = {
-    'chemical': [
-      SubstanceItem(name: 'Sarin', properties: 'Liquid, Volatile, Lethal', description: 'Nerve agent with rapid inhalation hazards.'),
-      SubstanceItem(name: 'Chlorine', properties: 'Gas, Greenish, Corrosive', description: 'Respiratory irritant with dense plume behavior.'),
-      SubstanceItem(name: 'VX', properties: 'Persistent, Oily', description: 'Extremely toxic nerve agent with surface persistence.'),
-      SubstanceItem(name: 'Tabun', properties: 'Liquid, Volatile', description: 'First discovered nerve agent with delayed symptoms.'),
-      SubstanceItem(name: 'Soman', properties: 'Liquid, Volatile', description: 'More potent than tabun with rapid onset.'),
-      SubstanceItem(name: 'Cyclosarin', properties: 'Liquid, Volatile', description: 'More persistent than sarin with higher toxicity.'),
-      SubstanceItem(name: 'Mustard Gas', properties: 'Liquid, Vesicant', description: 'Causes severe blistering and respiratory damage.'),
-      SubstanceItem(name: 'Lewisite', properties: 'Liquid, Vesicant', description: 'Arsenic-based blistering agent with immediate pain.'),
-      SubstanceItem(name: 'Phosgene', properties: 'Gas, Colorless', description: 'Choking agent causing pulmonary edema.'),
-      SubstanceItem(name: 'Hydrogen Cyanide', properties: 'Gas, Volatile', description: 'Blood agent preventing cellular respiration.'),
-      SubstanceItem(name: 'Cyanogen Chloride', properties: 'Gas, Volatile', description: 'Blood agent with rapid incapacitation.'),
-      SubstanceItem(name: 'Sulfur Mustard', properties: 'Liquid, Vesicant', description: 'Delayed blistering agent with long-term effects.'),
-      SubstanceItem(name: 'Nitrogen Mustard', properties: 'Liquid, Vesicant', description: 'Blistering agent with alkylating properties.'),
-      SubstanceItem(name: 'BZ', properties: 'Solid, Deliriant', description: 'Incapacitating agent causing hallucinations.'),
-      SubstanceItem(name: 'Saxitoxin', properties: 'Solid, Neurotoxin', description: 'Paralytic shellfish poison with rapid onset.'),
-      SubstanceItem(name: 'Ricin', properties: 'Solid, Toxin', description: 'Protein toxin derived from castor beans.'),
-      SubstanceItem(name: 'Aflatoxin', properties: 'Solid, Carcinogen', description: 'Fungal toxin causing liver damage.'),
-      SubstanceItem(name: 'Tetrodotoxin', properties: 'Solid, Neurotoxin', description: 'Marine toxin causing paralysis.'),
-      SubstanceItem(name: 'Botulinum Toxin', properties: 'Solid, Neurotoxin', description: 'Most potent biological toxin known.'),
-      SubstanceItem(name: 'Agent 15', properties: 'Liquid, Deliriant', description: 'Incapacitating agent similar to BZ.'),
-    ],
-    'biological': [
-      SubstanceItem(name: 'Anthrax', properties: 'Spore-forming, Durable', description: 'Inhalational risk with long environmental persistence.'),
-      SubstanceItem(name: 'Ricin', properties: 'Toxin, Powder', description: 'Protein toxin derived from castor beans.'),
-      SubstanceItem(name: 'Botulinum', properties: 'Neurotoxin', description: 'Highly lethal toxin requiring rapid containment.'),
-      SubstanceItem(name: 'Smallpox', properties: 'Virus, Contagious', description: 'Highly infectious with high mortality rate.'),
-      SubstanceItem(name: 'Ebola', properties: 'Virus, Hemorrhagic', description: 'Severe hemorrhagic fever with high mortality.'),
-      SubstanceItem(name: 'Marburg', properties: 'Virus, Hemorrhagic', description: 'Related to Ebola with similar symptoms.'),
-      SubstanceItem(name: 'Plague', properties: 'Bacteria, Pneumonic', description: 'Highly contagious respiratory infection.'),
-      SubstanceItem(name: 'Tularemia', properties: 'Bacteria, Highly infectious', description: 'Rabbit fever with aerosol transmission risk.'),
-      SubstanceItem(name: 'Brucellosis', properties: 'Bacteria, Zoonotic', description: 'Chronic infection with multiple organ involvement.'),
-      SubstanceItem(name: 'Q Fever', properties: 'Bacteria, Coxiella', description: 'Highly resistant spores with aerosol risk.'),
-      SubstanceItem(name: 'Glanders', properties: 'Bacteria, Burkholderia', description: 'Rare disease with high mortality if untreated.'),
-      SubstanceItem(name: 'Melioidosis', properties: 'Bacteria, Burkholderia', description: 'Similar to glanders with environmental persistence.'),
-      SubstanceItem(name: 'Cholera', properties: 'Bacteria, Waterborne', description: 'Severe diarrheal disease with dehydration risk.'),
-      SubstanceItem(name: 'Typhoid', properties: 'Bacteria, Salmonella', description: 'Systemic infection with high fever.'),
-      SubstanceItem(name: 'Dengue', properties: 'Virus, Mosquito-borne', description: 'Hemorrhagic fever with severe joint pain.'),
-      SubstanceItem(name: 'Yellow Fever', properties: 'Virus, Mosquito-borne', description: 'Hemorrhagic fever with liver involvement.'),
-      SubstanceItem(name: 'Lassa', properties: 'Virus, Arenavirus', description: 'Hemorrhagic fever with hearing loss risk.'),
-      SubstanceItem(name: 'Junin', properties: 'Virus, Arenavirus', description: 'Argentine hemorrhagic fever agent.'),
-      SubstanceItem(name: 'Machupo', properties: 'Virus, Arenavirus', description: 'Bolivian hemorrhagic fever agent.'),
-      SubstanceItem(name: 'Guanarito', properties: 'Virus, Arenavirus', description: 'Venezuelan hemorrhagic fever agent.'),
-    ],
-    'radiological': [
-      SubstanceItem(name: 'Cesium-137', properties: 'Radioactive, Long-lived', description: 'Gamma-emitting fission product.'),
-      SubstanceItem(name: 'Cobalt-60', properties: 'Radiation Source', description: 'Industrial source for irradiation.'),
-      SubstanceItem(name: 'Iodine-131', properties: 'Short-lived', description: 'Thyroid uptake risk after exposure.'),
-      SubstanceItem(name: 'Strontium-90', properties: 'Bone-seeker', description: 'Beta emitter with long half-life.'),
-      SubstanceItem(name: 'Plutonium-239', properties: 'Alpha emitter', description: 'Heavy metal with lung cancer risk.'),
-      SubstanceItem(name: 'Americium-241', properties: 'Alpha emitter', description: 'Used in smoke detectors, toxic if inhaled.'),
-      SubstanceItem(name: 'Uranium-235', properties: 'Fissile', description: 'Enriched uranium for nuclear weapons.'),
-      SubstanceItem(name: 'Uranium-238', properties: 'Depleted', description: 'Dense metal with chemical toxicity.'),
-      SubstanceItem(name: 'Radium-226', properties: 'Alpha emitter', description: 'Naturally radioactive, bone seeker.'),
-      SubstanceItem(name: 'Polonium-210', properties: 'Alpha emitter', description: 'Extremely toxic, lethal in micrograms.'),
-      SubstanceItem(name: 'Tritium', properties: 'Beta emitter', description: 'Radioactive hydrogen, water contaminant.'),
-      SubstanceItem(name: 'Carbon-14', properties: 'Beta emitter', description: 'Long-lived environmental tracer.'),
-      SubstanceItem(name: 'Krypton-85', properties: 'Noble gas', description: 'Fission product, atmospheric dispersion.'),
-      SubstanceItem(name: 'Xenon-133', properties: 'Noble gas', description: 'Medical imaging isotope, short half-life.'),
-      SubstanceItem(name: 'Technetium-99m', properties: 'Gamma emitter', description: 'Medical imaging isotope, widely used.'),
-      SubstanceItem(name: 'Iridium-192', properties: 'Gamma emitter', description: 'Industrial radiography source.'),
-      SubstanceItem(name: 'Cobalt-57', properties: 'Gamma emitter', description: 'Medical imaging and calibration source.'),
-      SubstanceItem(name: 'Barium-140', properties: 'Beta emitter', description: 'Fission product with short half-life.'),
-      SubstanceItem(name: 'Cerium-144', properties: 'Beta emitter', description: 'Fission product, significant heat source.'),
-      SubstanceItem(name: 'Promethium-147', properties: 'Beta emitter', description: 'Used in nuclear batteries, long-lived.'),
-    ],
-    'nuclear': [
-      SubstanceItem(name: 'Uranium-235', properties: 'Fissile, Heavy metal', description: 'Criticality risk in enriched states.'),
-      SubstanceItem(name: 'Plutonium-239', properties: 'Fissile, Alpha emitter', description: 'Requires strict contamination controls.'),
-      SubstanceItem(name: 'Uranium-238', properties: 'Dense, Toxic', description: 'Depleted uranium handling protocols.'),
-      SubstanceItem(name: 'Uranium-233', properties: 'Fissile, Artificial', description: 'Breeder reactor fuel material.'),
-      SubstanceItem(name: 'Plutonium-240', properties: 'Fissile, Spontaneous', description: 'High spontaneous fission rate.'),
-      SubstanceItem(name: 'Plutonium-241', properties: 'Fissile, Beta emitter', description: 'Decays to americium-241.'),
-      SubstanceItem(name: 'Neptunium-237', properties: 'Fissile, Artificial', description: 'Byproduct of nuclear reactors.'),
-      SubstanceItem(name: 'Americium-241', properties: 'Fissile, Alpha emitter', description: 'Produced in nuclear reactors.'),
-      SubstanceItem(name: 'Curium-244', properties: 'Fissile, Alpha emitter', description: 'High heat output, potential fuel.'),
-      SubstanceItem(name: 'Californium-252', properties: 'Neutron source', description: 'Spontaneous fission neutron emitter.'),
-      SubstanceItem(name: 'Thorium-232', properties: 'Fertile, Natural', description: 'Potential breeder reactor fuel.'),
-      SubstanceItem(name: 'Thorium-233', properties: 'Fissile, Artificial', description: 'Intermediate in thorium cycle.'),
-      SubstanceItem(name: 'Deuterium', properties: 'Fusion fuel', description: 'Heavy hydrogen for fusion reactors.'),
-      SubstanceItem(name: 'Tritium', properties: 'Fusion fuel', description: 'Radioactive hydrogen for fusion.'),
-      SubstanceItem(name: 'Lithium-6', properties: 'Fusion breeding', description: 'Produces tritium in fusion reactions.'),
-      SubstanceItem(name: 'Lithium-7', properties: 'Fusion breeding', description: 'Neutron source in fusion reactions.'),
-      SubstanceItem(name: 'Beryllium-9', properties: 'Neutron multiplier', description: 'Reflects and multiplies neutrons.'),
-      SubstanceItem(name: 'Boron-10', properties: 'Neutron absorber', description: 'Control rod material for reactors.'),
-      SubstanceItem(name: 'Cadmium-113', properties: 'Neutron absorber', description: 'Control rod material for reactors.'),
-      SubstanceItem(name: 'Hafnium-178', properties: 'Neutron absorber', description: 'Control rod material for reactors.'),
-    ],
-  };
+  @override
+  void initState() {
+    super.initState();
+    _initializeSubstances();
+  }
+
+  Future<void> _initializeSubstances() async {
+    // Initialize default substances if collection is empty
+    await _firebaseService.initializeDefaultSubstances();
+    
+    // Load substances from Firestore
+    _firebaseService.getSubstances().listen((snapshot) {
+      final substances = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return SubstanceItem(
+          id: doc.id,
+          name: data['name'] as String? ?? '',
+          category: data['category'] as String? ?? '',
+          properties: data['properties'] as String? ?? '',
+          description: data['description'] as String? ?? '',
+          severity: data['severity'] as String? ?? 'unknown',
+        );
+      }).toList();
+
+      setState(() {
+        _allSubstances = substances;
+        _isLoading = false;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,37 +82,86 @@ class _SubstancesScreenState extends State<SubstancesScreen> {
                 onChanged: (value) => setState(() => substanceSearch = value),
               ),
               const SizedBox(height: 12),
-              _grid(
-                columns: 2,
-                children: filtered
-                    .map((item) => _panel(
-                          title: item.name,
-                          compact: true,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.properties,
-                                style: const TextStyle(
-                                  color: Color(0xFF38FF9C),
-                                  fontSize: 12,
+              if (_isLoading)
+                const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF38FF9C),
+                  ),
+                )
+              else if (filtered.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Text(
+                      'No substances found',
+                      style: TextStyle(color: Color(0xFF7C8B85)),
+                    ),
+                  ),
+                )
+              else
+                _grid(
+                  columns: 2,
+                  children: filtered
+                      .map((item) => _panel(
+                            title: item.name,
+                            compact: true,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _getSeverityColor(item.severity),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        item.severity.toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      item.category.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Color(0xFF38FF9C),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                item.description,
-                                style: const TextStyle(color: Color(0xFF7C8B85)),
-                              ),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-              ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  item.properties,
+                                  style: const TextStyle(
+                                    color: Color(0xFF38FF9C),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  item.description,
+                                  style: const TextStyle(color: Color(0xFF7C8B85)),
+                                ),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                ),
               const SizedBox(height: 12),
               Row(
                 children: [
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _importSubstances,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1C2A24),
                     ),
@@ -170,7 +169,7 @@ class _SubstancesScreenState extends State<SubstancesScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _exportSubstances,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1C2A24),
                     ),
@@ -178,11 +177,21 @@ class _SubstancesScreenState extends State<SubstancesScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SubstanceManagementScreen(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1C2A24),
+                      backgroundColor: const Color(0xFF38FF9C),
                     ),
-                    child: const Text('Add Substance'),
+                    child: const Text(
+                      'Manage Substances',
+                      style: TextStyle(color: Colors.black),
+                    ),
                   ),
                 ],
               ),
@@ -194,20 +203,354 @@ class _SubstancesScreenState extends State<SubstancesScreen> {
   }
 
   List<SubstanceItem> _filteredSubstances() {
-    final allItems = <SubstanceItem>[];
     if (substanceFilter == 'all') {
-      substanceDatabase.forEach((_, items) => allItems.addAll(items));
+      if (substanceSearch.trim().isEmpty) return _allSubstances;
+      final term = substanceSearch.toLowerCase();
+      return _allSubstances
+          .where((item) =>
+              item.name.toLowerCase().contains(term) ||
+              item.properties.toLowerCase().contains(term) ||
+              item.description.toLowerCase().contains(term))
+          .toList();
     } else {
-      allItems.addAll(substanceDatabase[substanceFilter] ?? []);
+      final filtered = _allSubstances
+          .where((item) => item.category == substanceFilter)
+          .toList();
+      
+      if (substanceSearch.trim().isEmpty) return filtered;
+      
+      final term = substanceSearch.toLowerCase();
+      return filtered
+          .where((item) =>
+              item.name.toLowerCase().contains(term) ||
+              item.properties.toLowerCase().contains(term) ||
+              item.description.toLowerCase().contains(term))
+          .toList();
     }
-    if (substanceSearch.trim().isEmpty) return allItems;
-    final term = substanceSearch.toLowerCase();
-    return allItems
-        .where((item) =>
-            item.name.toLowerCase().contains(term) ||
-            item.properties.toLowerCase().contains(term) ||
-            item.description.toLowerCase().contains(term))
-        .toList();
+  }
+
+  Color _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'critical':
+        return const Color(0xFFFF4D4F);
+      case 'high':
+        return const Color(0xFFFFB020);
+      case 'medium':
+        return const Color(0xFF38FF9C);
+      case 'low':
+        return const Color(0xFF4CAF50);
+      default:
+        return const Color(0xFF7C8B85);
+    }
+  }
+
+  void _showAddSubstanceDialog() {
+    final nameController = TextEditingController();
+    final categoryController = TextEditingController(text: 'chemical');
+    final propertiesController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final severityController = TextEditingController(text: 'high');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF101915),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFF1C2A24)),
+        ),
+        title: const Text(
+          'Add New Substance',
+          style: TextStyle(color: Color(0xFFE6F4EE)),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  labelStyle: TextStyle(color: Color(0xFF7C8B85)),
+                ),
+                style: const TextStyle(color: Color(0xFFE6F4EE)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: categoryController,
+                decoration: const InputDecoration(
+                  labelText: 'Category (chemical/biological/radiological/nuclear)',
+                  labelStyle: TextStyle(color: Color(0xFF7C8B85)),
+                ),
+                style: const TextStyle(color: Color(0xFFE6F4EE)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: propertiesController,
+                decoration: const InputDecoration(
+                  labelText: 'Properties',
+                  labelStyle: TextStyle(color: Color(0xFF7C8B85)),
+                ),
+                style: const TextStyle(color: Color(0xFFE6F4EE)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  labelStyle: TextStyle(color: Color(0xFF7C8B85)),
+                ),
+                style: const TextStyle(color: Color(0xFFE6F4EE)),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: severityController,
+                decoration: const InputDecoration(
+                  labelText: 'Severity (critical/high/medium/low)',
+                  labelStyle: TextStyle(color: Color(0xFF7C8B85)),
+                ),
+                style: const TextStyle(color: Color(0xFFE6F4EE)),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF7C8B85)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isEmpty ||
+                  categoryController.text.isEmpty ||
+                  propertiesController.text.isEmpty ||
+                  descriptionController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please fill in all required fields'),
+                    backgroundColor: Color(0xFFFF4D4F),
+                  ),
+                );
+                return;
+              }
+
+              try {
+                await _firebaseService.addSubstance(
+                  name: nameController.text,
+                  category: categoryController.text,
+                  properties: propertiesController.text,
+                  description: descriptionController.text,
+                  severity: severityController.text,
+                );
+
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Substance added successfully'),
+                      backgroundColor: Color(0xFF38FF9C),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error adding substance: ${e.toString()}'),
+                      backgroundColor: Color(0xFFFF4D4F),
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF38FF9C),
+            ),
+            child: const Text(
+              'Add',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportSubstances() async {
+    try {
+      if (_allSubstances.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No substances to export'),
+              backgroundColor: Color(0xFFFF4D4F),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Create CSV content
+      final csvContent = StringBuffer();
+      csvContent.writeln('Name,Category,Properties,Description,Severity');
+      
+      for (final substance in _allSubstances) {
+        csvContent.writeln(
+          '${_escapeCsv(substance.name)},'
+          '${_escapeCsv(substance.category)},'
+          '${_escapeCsv(substance.properties)},'
+          '${_escapeCsv(substance.description)},'
+          '${_escapeCsv(substance.severity)}',
+        );
+      }
+
+      // Download the CSV file
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'substances_$timestamp.csv';
+      await FileDownloadHelper.downloadFile(fileName, csvContent.toString());
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('CSV exported successfully as: $fileName'),
+            backgroundColor: Color(0xFF38FF9C),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting substances: ${e.toString()}'),
+            backgroundColor: Color(0xFFFF4D4F),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importSubstances() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+      
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+      
+      final file = result.files.first;
+      final bytes = file.bytes;
+      
+      if (bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error reading file'),
+              backgroundColor: Color(0xFFFF4D4F),
+            ),
+          );
+        }
+        return;
+      }
+      
+      final csvContent = utf8.decode(bytes);
+      final lines = csvContent.split('\n');
+      
+      if (lines.length < 2) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('CSV file is empty or invalid'),
+              backgroundColor: Color(0xFFFF4D4F),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Skip header row and process data
+      int importedCount = 0;
+      for (int i = 1; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+        
+        final values = _parseCsvLine(line);
+        if (values.length >= 4) {
+          try {
+            await _firebaseService.addSubstance(
+              name: values[0],
+              category: values[1],
+              properties: values[2],
+              description: values[3],
+              severity: values.length > 4 ? values[4] : 'unknown',
+            );
+            importedCount++;
+          } catch (e) {
+            print('Error importing substance: $e');
+          }
+        }
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully imported $importedCount substance(s)'),
+            backgroundColor: Color(0xFF38FF9C),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing substances: ${e.toString()}'),
+            backgroundColor: Color(0xFFFF4D4F),
+          ),
+        );
+      }
+    }
+  }
+
+  String _escapeCsv(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  List<String> _parseCsvLine(String line) {
+    final List<String> result = [];
+    bool inQuotes = false;
+    String currentValue = '';
+    
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+      
+      if (char == '"') {
+        if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+          currentValue += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char == ',' && !inQuotes) {
+        result.add(currentValue);
+        currentValue = '';
+      } else {
+        currentValue += char;
+      }
+    }
+    
+    result.add(currentValue);
+    return result;
   }
 
   Widget _filterChip(String label, String value) {
@@ -289,13 +632,19 @@ class _SubstancesScreenState extends State<SubstancesScreen> {
 }
 
 class SubstanceItem {
+  final String id;
   final String name;
+  final String category;
   final String properties;
   final String description;
-
+  final String severity;
+  
   SubstanceItem({
+    required this.id,
     required this.name,
+    required this.category,
     required this.properties,
     required this.description,
+    required this.severity,
   });
 }
