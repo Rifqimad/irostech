@@ -11,6 +11,52 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:share_plus/share_plus.dart';
 
+// DetectedSubstance class
+class DetectedSubstance {
+  final String name, type, severity, time;
+  final double lat, lng;
+  DetectedSubstance({required this.name, required this.type, required this.lat, required this.lng, required this.severity, required this.time});
+}
+
+// PathNode class for A* pathfinding
+class PathNode {
+  final LatLng position;
+  final double g; // Cost from start
+  final double h; // Heuristic to end
+  final PathNode? parent;
+  
+  PathNode(this.position, this.g, this.h, this.parent);
+  
+  double get f => g + h;
+}
+
+// CBRN Hotspot class
+class CBRNHotspot {
+  final String name;
+  final String type;
+  final String severity;
+  final LatLng position;
+  final double radius;
+  final DateTime detectedTime;
+  final String detectedBy;
+  final double detectedValue;
+  final String unit;
+  final double threshold;
+
+  CBRNHotspot({
+    required this.name,
+    required this.type,
+    required this.severity,
+    required this.position,
+    required this.radius,
+    required this.detectedTime,
+    required this.detectedBy,
+    required this.detectedValue,
+    required this.unit,
+    required this.threshold,
+  });
+}
+
 class LiveMapScreen extends StatefulWidget {
   const LiveMapScreen({super.key});
 
@@ -29,7 +75,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   String layerType = 'standard';
   bool showTrails = false;
   bool showHeatmap = false;
-  bool showRoutes = false;
   bool showGeofences = false;
   bool plumeOn = false;
   String incidentSeverity = 'critical';
@@ -38,6 +83,55 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   String timelineFilter = 'all';
   bool notificationSoundOn = true;
   List<IncidentMarker> incidentMarkers = [];
+
+  // CBRN Detection simulation
+  Timer? _cbrnDetectionTimer;
+  final List<CBRNHotspot> cbrnHotspots = [];
+  final Map<String, List<DetectedSubstance>> detectedSubstancesByType = {
+    'Chemical': [],
+    'Biological': [],
+    'Radiological': [],
+    'Nuclear': [],
+  };
+  
+  // Detection radius around drone paths (in degrees)
+  // 0.001 degrees ≈ 100 meters at the equator
+  double detectionRadius = 0.001;
+
+  // Predefined CBRN substances for simulation
+  static final List<Map<String, dynamic>> cbrnSubstances = [
+    // Chemical
+    {'name': 'Chlorine', 'type': 'Chemical', 'severity': 'high', 'icon': Icons.science, 'color': const Color(0xFFFFB020), 'threshold': 0.5, 'unit': 'ppm', 'maxValue': 10.0},
+    {'name': 'Sarin', 'type': 'Chemical', 'severity': 'critical', 'icon': Icons.warning, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'ppm', 'maxValue': 1.0},
+    {'name': 'Mustard Gas', 'type': 'Chemical', 'severity': 'critical', 'icon': Icons.warning, 'color': const Color(0xFFFF4D4F), 'threshold': 0.1, 'unit': 'ppm', 'maxValue': 2.0},
+    {'name': 'VX', 'type': 'Chemical', 'severity': 'critical', 'icon': Icons.warning, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'ppm', 'maxValue': 1.0},
+    {'name': 'Ammonia', 'type': 'Chemical', 'severity': 'medium', 'icon': Icons.science, 'color': const Color(0xFFFFB020), 'threshold': 25.0, 'unit': 'ppm', 'maxValue': 300.0},
+    {'name': 'CO2', 'type': 'Chemical', 'severity': 'medium', 'icon': Icons.cloud, 'color': const Color(0xFFFFB020), 'threshold': 1000.0, 'unit': 'ppm', 'maxValue': 5000.0},
+    {'name': 'Sulfur Dioxide', 'type': 'Chemical', 'severity': 'high', 'icon': Icons.science, 'color': const Color(0xFFFFB020), 'threshold': 0.1, 'unit': 'ppm', 'maxValue': 5.0},
+    {'name': 'Hydrogen Cyanide', 'type': 'Chemical', 'severity': 'critical', 'icon': Icons.warning, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'ppm', 'maxValue': 1.0},
+    {'name': 'Phosgene', 'type': 'Chemical', 'severity': 'critical', 'icon': Icons.warning, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'ppm', 'maxValue': 1.0},
+    // Biological
+    {'name': 'Anthrax', 'type': 'Biological', 'severity': 'critical', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 100, 'unit': 'CFU/m³', 'maxValue': 10000},
+    {'name': 'Smallpox', 'type': 'Biological', 'severity': 'critical', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 10, 'unit': 'CFU/m³', 'maxValue': 1000},
+    {'name': 'Botulinum', 'type': 'Biological', 'severity': 'high', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 50, 'unit': 'CFU/m³', 'maxValue': 5000},
+    {'name': 'Ebola', 'type': 'Biological', 'severity': 'critical', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 100, 'unit': 'CFU/m³', 'maxValue': 10000},
+    {'name': 'Plague', 'type': 'Biological', 'severity': 'high', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 50, 'unit': 'CFU/m³', 'maxValue': 5000},
+    {'name': 'Ricin', 'type': 'Biological', 'severity': 'high', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 100, 'unit': 'CFU/m³', 'maxValue': 10000},
+    {'name': 'Tularemia', 'type': 'Biological', 'severity': 'critical', 'icon': Icons.bubble_chart, 'color': const Color(0xFF9C27B0), 'threshold': 10, 'unit': 'CFU/m³', 'maxValue': 1000},
+    // Radiological
+    {'name': 'Cesium-137', 'type': 'Radiological', 'severity': 'high', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.1, 'unit': 'µSv/h', 'maxValue': 10.0},
+    {'name': 'Cobalt-60', 'type': 'Radiological', 'severity': 'high', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.1, 'unit': 'µSv/h', 'maxValue': 10.0},
+    {'name': 'Iridium-192', 'type': 'Radiological', 'severity': 'medium', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.5, 'unit': 'µSv/h', 'maxValue': 20.0},
+    {'name': 'Strontium-90', 'type': 'Radiological', 'severity': 'high', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.1, 'unit': 'µSv/h', 'maxValue': 10.0},
+    {'name': 'Plutonium-239', 'type': 'Radiological', 'severity': 'critical', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.05, 'unit': 'µSv/h', 'maxValue': 5.0},
+    {'name': 'Americium-241', 'type': 'Radiological', 'severity': 'high', 'icon': Icons.radio_button_checked, 'color': const Color(0xFF00D4FF), 'threshold': 0.5, 'unit': 'µSv/h', 'maxValue': 20.0},
+    // Nuclear
+    {'name': 'Uranium-235', 'type': 'Nuclear', 'severity': 'critical', 'icon': Icons.flash_on, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'µSv/h', 'maxValue': 2.0},
+    {'name': 'Plutonium-239', 'type': 'Nuclear', 'severity': 'critical', 'icon': Icons.flash_on, 'color': const Color(0xFFFF4D4F), 'threshold': 0.01, 'unit': 'µSv/h', 'maxValue': 2.0},
+    {'name': 'Tritium', 'type': 'Nuclear', 'severity': 'high', 'icon': Icons.flash_on, 'color': const Color(0xFFFF4D4F), 'threshold': 0.1, 'unit': 'µSv/h', 'maxValue': 5.0},
+    {'name': 'Neptunium-237', 'type': 'Nuclear', 'severity': 'high', 'icon': Icons.flash_on, 'color': const Color(0xFFFF4D4F), 'threshold': 0.1, 'unit': 'µSv/h', 'maxValue': 5.0},
+    {'name': 'Americium-241', 'type': 'Nuclear', 'severity': 'medium', 'icon': Icons.flash_on, 'color': const Color(0xFFFF4D4F), 'threshold': 0.5, 'unit': 'µSv/h', 'maxValue': 10.0},
+  ];
 
   // Drone positions
   LatLng dronePosition = const LatLng(51.505, -0.09);
@@ -63,20 +157,15 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
   List<LatLng> drone5Path = [];
   int drone5PathIndex = 0;
 
-  // Hazardous zones
-  HazardousZone? redZone;
-  HazardousZone? greenZone;
-  HazardousZone? mediumRiskZone;
-  HazardousZone? lowRiskZone;
-
   // Drone data
   final List<Drone> drones = [];
   StreamSubscription<Map<String, dynamic>>? _droneSubscription;
   
-  // Hazardous zones data
-  final List<HazardousZone> hazardousZones = [];
   StreamSubscription<Map<String, dynamic>>? _zonesSubscription;
 
+  // Evacuation routes
+  List<List<LatLng>> evacuationRoutes = [];
+  List<LatLng> safeEvacuationPoints = [];
   final List<AlertItem> alertTimelineData = [
     AlertItem(id: 1, severity: 'critical', message: 'Chlorine plume detected', time: '00:00:32'),
     AlertItem(id: 2, severity: 'high', message: 'Biological sample positive', time: '00:01:18'),
@@ -94,7 +183,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     super.initState();
     _getCurrentLocation();
     _listenToDroneUpdates();
-    _listenToZoneUpdates();
+    _startCBRNDetectionSimulation();
   }
 
   void _listenToDroneUpdates() {
@@ -142,30 +231,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     });
   }
 
-  void _listenToZoneUpdates() {
-    _zonesSubscription = FirebaseService().getHazardousZones().listen((zonesData) {
-      if (zonesData.isEmpty) return;
-      
-      setState(() {
-        hazardousZones.clear();
-        zonesData.forEach((key, value) {
-          final zoneData = Map<String, dynamic>.from(value);
-          hazardousZones.add(HazardousZone(
-            name: zoneData['name'] ?? 'Unknown Zone',
-            center: LatLng(
-              (zoneData['lat'] ?? 0.0).toDouble(),
-              (zoneData['lng'] ?? 0.0).toDouble(),
-            ),
-            radiusKm: (zoneData['radiusKm'] ?? 0.3).toDouble(),
-            severity: zoneData['severity'] ?? 'medium',
-            substanceType: zoneData['substanceType'] ?? 'unknown',
-            detected: zoneData['detected'] ?? false,
-          ));
-        });
-      });
-    });
-  }
-
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -198,47 +263,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
       // Move map to user's location
       mapController.move(userLocation, 16.0);
       
-      // Create red zone (dangerous) on drone's path - northeast
-      redZone = HazardousZone(
-        name: 'Chemical Hazard Zone',
-        center: LatLng(userLocation.latitude + 0.003, userLocation.longitude + 0.003),
-        radiusKm: 0.3,
-        severity: 'critical',
-        substanceType: 'chemical',
-        detected: false,
-      );
-
-      // Create green zone (safe) further away from red zone - far northeast
-      greenZone = HazardousZone(
-        name: 'Safe Zone',
-        center: LatLng(userLocation.latitude + 0.008, userLocation.longitude + 0.008),
-        radiusKm: 0.3,
-        severity: 'safe',
-        substanceType: 'none',
-        detected: false,
-      );
-
-      // Create low risk zone (yellow) - southwest
-      lowRiskZone = HazardousZone(
-        name: 'Low Risk Zone',
-        center: LatLng(userLocation.latitude - 0.003, userLocation.longitude - 0.003),
-        radiusKm: 0.3,
-        severity: 'low',
-        substanceType: 'mild_chemical',
-        detected: false,
-      );
-
-      // Create high risk zone (orange) - southeast
-      mediumRiskZone = HazardousZone(
-        name: 'High Risk Zone',
-        center: LatLng(userLocation.latitude - 0.003, userLocation.longitude + 0.003),
-        radiusKm: 0.3,
-        severity: 'high',
-        substanceType: 'hazardous_chemical',
-        detected: false,
-      );
     });
-
     // Initialize drone positions (animation controlled by overview screen)
     _initializeDronePositions(userLocation);
   }
@@ -443,11 +468,513 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     });
   }
 
+  // CBRN Detection Simulation
+  void _startCBRNDetectionSimulation() {
+    _cbrnDetectionTimer?.cancel();
+    
+    // Start simulation timer - detects substances every 5-10 seconds
+    _cbrnDetectionTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      // Random chance to detect a substance (30% chance each tick)
+      if (math.Random().nextDouble() < 0.3) {
+        _generateRandomCBRNDetection();
+      }
+    });
+  }
+
+  void _generateRandomCBRNDetection() {
+    final center = currentLocation ?? defaultCenter;
+    final random = math.Random();
+    
+    // Select random substance from predefined list
+    final substanceData = cbrnSubstances[random.nextInt(cbrnSubstances.length)];
+    
+    // Get all available drone paths
+    final List<List<LatLng>> allPaths = [];
+    final List<String> droneNames = [];
+    
+    if (dronePath.isNotEmpty) {
+      allPaths.add(dronePath);
+      droneNames.add('Drone Alpha');
+    }
+    if (drone2Path.isNotEmpty) {
+      allPaths.add(drone2Path);
+      droneNames.add('Drone Bravo');
+    }
+    if (drone3Path.isNotEmpty) {
+      allPaths.add(drone3Path);
+      droneNames.add('Drone Charlie');
+    }
+    if (drone4Path.isNotEmpty) {
+      allPaths.add(drone4Path);
+      droneNames.add('Drone Delta');
+    }
+    if (drone5Path.isNotEmpty) {
+      allPaths.add(drone5Path);
+      droneNames.add('Drone Echo');
+    }
+    
+    // If no paths available, fallback to center
+    LatLng detectionPosition;
+    String detectedBy;
+    
+    if (allPaths.isEmpty) {
+      // Fallback: generate random position around the center (within 0.005 degrees ~500m)
+      final latOffset = (random.nextDouble() - 0.5) * 0.01;
+      final lngOffset = (random.nextDouble() - 0.5) * 0.01;
+      detectionPosition = LatLng(
+        center.latitude + latOffset,
+        center.longitude + lngOffset,
+      );
+      detectedBy = 'Drone Alpha';
+    } else {
+      // Select random drone path
+      final pathIndex = random.nextInt(allPaths.length);
+      final selectedPath = allPaths[pathIndex];
+      detectedBy = droneNames[pathIndex];
+      
+      // Select random point along the path
+      final pathPointIndex = random.nextInt(selectedPath.length);
+      final pathPoint = selectedPath[pathPointIndex];
+      
+      // Generate detection position within the configured radius around the path point
+      final latOffset = (random.nextDouble() - 0.5) * 2 * detectionRadius;
+      final lngOffset = (random.nextDouble() - 0.5) * 2 * detectionRadius;
+      
+      detectionPosition = LatLng(
+        pathPoint.latitude + latOffset,
+        pathPoint.longitude + lngOffset,
+      );
+    }
+    
+    // Generate random detected value (between 0 and maxValue)
+    final maxValue = substanceData['maxValue'] as double;
+    final threshold = substanceData['threshold'] as double;
+    final detectedValue = random.nextDouble() * maxValue;
+    final unit = substanceData['unit'] as String;
+    
+    // Create detected substance
+    final now = DateTime.now();
+    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    
+    final substance = DetectedSubstance(
+      name: substanceData['name'],
+      type: substanceData['type'],
+      lat: detectionPosition.latitude,
+      lng: detectionPosition.longitude,
+      severity: substanceData['severity'],
+      time: timeStr,
+    );
+    
+    // Check if detected value is above threshold
+    final isAboveThreshold = detectedValue >= threshold;
+    
+    // Create hotspot only if above threshold
+    CBRNHotspot? hotspot;
+    if (isAboveThreshold) {
+      hotspot = CBRNHotspot(
+        name: substanceData['name'],
+        type: substanceData['type'],
+        severity: substanceData['severity'],
+        position: detectionPosition,
+        radius: _getRadiusForSeverity(substanceData['severity']),
+        detectedTime: now,
+        detectedBy: detectedBy,
+        detectedValue: detectedValue,
+        unit: unit,
+        threshold: threshold,
+      );
+    }
+    
+    setState(() {
+      // Always add to detected substances by type (database)
+      detectedSubstancesByType[substanceData['type']]!.add(substance);
+      
+      // Only add to hotspots list if above threshold (limit to 10)
+      if (hotspot != null) {
+        cbrnHotspots.add(hotspot!);
+        if (cbrnHotspots.length > 10) {
+          cbrnHotspots.removeAt(0);
+        }
+      }
+      
+      // Add to alert timeline
+      final statusText = isAboveThreshold ? 'DETECTED' : 'MONITORING';
+      alertTimelineData.insert(0, AlertItem(
+        id: alertTimelineData.length + 1,
+        severity: substanceData['severity'] == 'critical' ? 'critical' : 
+                    substanceData['severity'] == 'high' ? 'high' : 'medium',
+        message: '$detectedBy detected ${substanceData['type']}: ${substanceData['name']} - ${detectedValue.toStringAsFixed(2)} $unit (Threshold: ${threshold.toStringAsFixed(2)} $unit) [$statusText]',
+        time: timeStr,
+      ));
+      
+      // Keep only last 10 alerts
+      if (alertTimelineData.length > 10) {
+        alertTimelineData.removeLast();
+      }
+    });
+  }
+
+  // Evacuation Route Calculation Functions
+  
+  /// Check if a point is inside any CBRN hotspot
+  bool _isPointInHotspot(LatLng point) {
+    for (final hotspot in cbrnHotspots) {
+      final distance = _calculateDistance(point, hotspot.position);
+      if (distance <= hotspot.radius) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Check if a line segment intersects with any CBRN hotspot
+  bool _doesLineIntersectHotspot(LatLng start, LatLng end) {
+    // Sample points along the line segment
+    final numSamples = 20;
+    for (int i = 0; i <= numSamples; i++) {
+      final t = i / numSamples;
+      final lat = start.latitude + (end.latitude - start.latitude) * t;
+      final lng = start.longitude + (end.longitude - start.longitude) * t;
+      final point = LatLng(lat, lng);
+      
+      if (_isPointInHotspot(point)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Calculate distance between two LatLng points in degrees
+  double _calculateDistance(LatLng point1, LatLng point2) {
+    final latDiff = point1.latitude - point2.latitude;
+    final lngDiff = point1.longitude - point2.longitude;
+    return math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+  }
+
+  /// Generate safe evacuation points around the user's location
+  void _generateSafeEvacuationPoints() {
+    if (currentLocation == null) return;
+    
+    safeEvacuationPoints.clear();
+    final center = currentLocation!;
+    final searchRadius = 0.02; // ~2km
+    final numDirections = 8; // 8 directions (N, NE, E, SE, S, SW, W, NW)
+    final stepsPerDirection = 5;
+    
+    for (int dir = 0; dir < numDirections; dir++) {
+      final angle = (dir * 45) * math.pi / 180; // Convert to radians
+      
+      for (int step = 1; step <= stepsPerDirection; step++) {
+        final distance = (searchRadius / stepsPerDirection) * step;
+        final lat = center.latitude + distance * math.cos(angle);
+        final lng = center.longitude + distance * math.sin(angle);
+        final point = LatLng(lat, lng);
+        
+        // Check if this point is safe (not in any hotspot)
+        if (!_isPointInHotspot(point)) {
+          // Also check if the path to this point is safe
+          if (!_doesLineIntersectHotspot(center, point)) {
+            safeEvacuationPoints.add(point);
+            break; // Found a safe point in this direction, move to next direction
+          }
+        }
+      }
+    }
+  }
+
+  /// Calculate evacuation routes using simple straight lines
+  void _calculateEvacuationRoutes() {
+    if (currentLocation == null || cbrnHotspots.isEmpty) {
+      evacuationRoutes.clear();
+      return;
+    }
+    
+    evacuationRoutes.clear();
+    _generateSafeEvacuationPoints();
+    
+    if (safeEvacuationPoints.isEmpty) {
+      // No safe points found, try to find the least dangerous path
+      _calculateLeastDangerousRoutes();
+      return;
+    }
+    
+    // Generate up to 4 evacuation routes to different safe points using straight lines
+    final numRoutes = math.min(4, safeEvacuationPoints.length);
+    
+    for (int i = 0; i < numRoutes; i++) {
+      final destination = safeEvacuationPoints[i];
+      final route = _findSimpleSafePath(currentLocation!, destination);
+      
+      if (route.isNotEmpty) {
+        evacuationRoutes.add(route);
+      }
+    }
+  }
+
+  /// Find a simple safe path from start to end avoiding hotspots (straight lines only)
+  List<LatLng> _findSimpleSafePath(LatLng start, LatLng end) {
+    // First, try a direct straight line
+    if (!_doesLineIntersectHotspot(start, end)) {
+      return [start, end];
+    }
+    
+    // Direct path is blocked, try to find a waypoint to go around the hotspot
+    return _findWaypointPath(start, end);
+  }
+
+  /// Find a path with a single waypoint to avoid hotspots
+  List<LatLng> _findWaypointPath(LatLng start, LatLng end) {
+    // Try perpendicular waypoints at different distances
+    final distances = [0.005, 0.01, 0.015]; // Different offset distances
+    final numAttempts = 8; // Number of directions to try
+    
+    for (final distance in distances) {
+      for (int i = 0; i < numAttempts; i++) {
+        final angle = (i * 360 / numAttempts) * math.pi / 180;
+        
+        // Calculate midpoint
+        final midLat = (start.latitude + end.latitude) / 2;
+        final midLng = (start.longitude + end.longitude) / 2;
+        
+        // Add perpendicular offset
+        final waypoint = LatLng(
+          midLat + distance * math.cos(angle),
+          midLng + distance * math.sin(angle),
+        );
+        
+        // Check if waypoint is safe
+        if (_isPointInHotspot(waypoint)) {
+          continue;
+        }
+        
+        // Check if both segments are safe
+        if (!_doesLineIntersectHotspot(start, waypoint) && 
+            !_doesLineIntersectHotspot(waypoint, end)) {
+          return [start, waypoint, end];
+        }
+      }
+    }
+    
+    // No safe path found, return direct path (will be marked as unsafe)
+    return [start, end];
+  }
+
+  /// A* pathfinding algorithm to find safe route
+  List<LatLng> _aStarPathfinding(LatLng start, LatLng end) {
+    // Discretize the space into a grid
+    final gridSize = 0.001; // ~100m grid size
+    final maxIterations = 1000;
+    
+    // Define search bounds
+    final minLat = math.min(start.latitude, end.latitude) - 0.01;
+    final maxLat = math.max(start.latitude, end.latitude) + 0.01;
+    final minLng = math.min(start.longitude, end.longitude) - 0.01;
+    final maxLng = math.max(start.longitude, end.longitude) + 0.01;
+    
+    // Priority queue (simplified as sorted list)
+    List<PathNode> openSet = [];
+    Set<String> closedSet = {};
+    
+    // Start node
+    final startNode = PathNode(start, 0, _calculateDistance(start, end), null);
+    openSet.add(startNode);
+    
+    int iterations = 0;
+    
+    while (openSet.isNotEmpty && iterations < maxIterations) {
+      iterations++;
+      
+      // Get node with lowest f score
+      openSet.sort((a, b) => a.f.compareTo(b.f));
+      final current = openSet.removeAt(0);
+      
+      // Check if we reached the destination
+      if (_calculateDistance(current.position, end) < gridSize) {
+        // Reconstruct path
+        List<LatLng> path = [];
+        PathNode? node = current;
+        while (node != null) {
+          path.insert(0, node.position);
+          node = node.parent;
+        }
+        return path;
+      }
+      
+      // Add to closed set
+      final currentKey = '${current.position.latitude.toStringAsFixed(4)},${current.position.longitude.toStringAsFixed(4)}';
+      closedSet.add(currentKey);
+      
+      // Generate neighbors (8 directions)
+      final directions = [
+        [0, gridSize], [gridSize, 0], [0, -gridSize], [-gridSize, 0], // Cardinal
+        [gridSize, gridSize], [gridSize, -gridSize], [-gridSize, gridSize], [-gridSize, -gridSize] // Diagonal
+      ];
+      
+      for (final dir in directions) {
+        final newLat = current.position.latitude + dir[0];
+        final newLng = current.position.longitude + dir[1];
+        final neighborPos = LatLng(newLat, newLng);
+        
+        // Check bounds
+        if (newLat < minLat || newLat > maxLat || newLng < minLng || newLng > maxLng) {
+          continue;
+        }
+        
+        // Check if in hotspot
+        if (_isPointInHotspot(neighborPos)) {
+          continue;
+        }
+        
+        // Check if already in closed set
+        final neighborKey = '${newLat.toStringAsFixed(4)},${newLng.toStringAsFixed(4)}';
+        if (closedSet.contains(neighborKey)) {
+          continue;
+        }
+        
+        // Calculate costs
+        final moveCost = _calculateDistance(current.position, neighborPos);
+        final gScore = current.g + moveCost;
+        final hScore = _calculateDistance(neighborPos, end);
+        
+        // Check if neighbor is already in open set with lower g score
+        final existingNodeIndex = openSet.indexWhere(
+          (n) => _calculateDistance(n.position, neighborPos) < 0.0001,
+        );
+        
+        if (existingNodeIndex >= 0 && openSet[existingNodeIndex].g <= gScore) {
+          continue;
+        }
+        
+        // Add or update neighbor
+        final neighbor = PathNode(neighborPos, gScore, hScore, current);
+        if (existingNodeIndex >= 0) {
+          openSet.removeAt(existingNodeIndex);
+        }
+        openSet.add(neighbor);
+      }
+    }
+    
+    // No path found, return direct path (will be marked as unsafe)
+    return [start, end];
+  }
+
+  /// Calculate least dangerous routes when no completely safe path exists
+  void _calculateLeastDangerousRoutes() {
+    if (currentLocation == null) return;
+    
+    evacuationRoutes.clear();
+    final center = currentLocation!;
+    final searchRadius = 0.02;
+    final numRoutes = 4;
+    
+    for (int i = 0; i < numRoutes; i++) {
+      final angle = (i * 90) * math.pi / 180; // 4 directions
+      final lat = center.latitude + searchRadius * math.cos(angle);
+      final lng = center.longitude + searchRadius * math.sin(angle);
+      final destination = LatLng(lat, lng);
+      
+      // Try to find path with minimal hotspot intersection
+      final route = _findPathWithMinimalDanger(center, destination);
+      if (route.isNotEmpty) {
+        evacuationRoutes.add(route);
+      }
+    }
+  }
+
+  /// Find path with minimal danger (fewest hotspot intersections)
+  List<LatLng> _findPathWithMinimalDanger(LatLng start, LatLng end) {
+    // Try multiple intermediate waypoints
+    final numWaypoints = 5;
+    List<LatLng> bestPath = [start, end];
+    int minDanger = _countDangerousSegments(bestPath);
+    
+    for (int i = 1; i < numWaypoints; i++) {
+      final t = i / numWaypoints;
+      
+      // Try waypoint perpendicular to direct path
+      final perpLat = (end.longitude - start.longitude) * t;
+      final perpLng = -(end.latitude - start.latitude) * t;
+      final offset = 0.005; // Offset distance
+      
+      final waypoint1 = LatLng(
+        start.latitude + (end.latitude - start.latitude) * t + perpLat * offset,
+        start.longitude + (end.longitude - start.longitude) * t + perpLng * offset,
+      );
+      
+      final waypoint2 = LatLng(
+        start.latitude + (end.latitude - start.latitude) * t - perpLat * offset,
+        start.longitude + (end.longitude - start.longitude) * t - perpLng * offset,
+      );
+      
+      // Try path with waypoint1
+      final path1 = [start, waypoint1, end];
+      final danger1 = _countDangerousSegments(path1);
+      
+      if (danger1 < minDanger) {
+        minDanger = danger1;
+        bestPath = path1;
+      }
+      
+      // Try path with waypoint2
+      final path2 = [start, waypoint2, end];
+      final danger2 = _countDangerousSegments(path2);
+      
+      if (danger2 < minDanger) {
+        minDanger = danger2;
+        bestPath = path2;
+      }
+    }
+    
+    return bestPath;
+  }
+
+  /// Count how many segments in a path intersect with hotspots
+  int _countDangerousSegments(List<LatLng> path) {
+    int count = 0;
+    for (int i = 0; i < path.length - 1; i++) {
+      if (_doesLineIntersectHotspot(path[i], path[i + 1])) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  Color _getColorForCBRNType(String type) {
+    switch (type) {
+      case 'Chemical':
+        return const Color(0xFFFFB020); // Orange
+      case 'Biological':
+        return const Color(0xFF9C27B0); // Purple
+      case 'Radiological':
+        return const Color(0xFF00D4FF); // Cyan
+      case 'Nuclear':
+        return const Color(0xFFFF4D4F); // Red
+      default:
+        return const Color(0xFF7C8B85); // Gray
+    }
+  }
+
+  IconData _getIconForCBRNType(String type) {
+    switch (type) {
+      case 'Chemical':
+        return Icons.science;
+      case 'Biological':
+        return Icons.bubble_chart;
+      case 'Radiological':
+        return Icons.radio_button_checked;
+      case 'Nuclear':
+        return Icons.flash_on;
+      default:
+        return Icons.warning;
+    }
+  }
+
   @override
   void dispose() {
     _droneSubscription?.cancel();
     _zonesSubscription?.cancel();
     _pathTimer?.cancel();
+    _cbrnDetectionTimer?.cancel();
     super.dispose();
   }
 
@@ -491,10 +1018,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
             children: [
               _tileLayer(),
               if (showTrails) _pathLayer(),
+              if (cbrnHotspots.isNotEmpty) _cbrnDangerZonesLayer(),
               if (currentLocation != null) _currentLocationMarker(),
+              if (cbrnHotspots.isNotEmpty) _cbrnHotspotsLayer(),
               _droneMarkers(),
               if (incidentMarkers.isNotEmpty) _incidentMarkersLayer(),
-              if (redZone != null || greenZone != null || lowRiskZone != null || mediumRiskZone != null) _hazardousZonesLayer(),
             ],
           ),
           Positioned(top: 16, right: 16, child: _mapControls()),
@@ -586,6 +1114,99 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     ];
 
     return PolylineLayer(polylines: polylines);
+  }
+
+  Widget _evacuationRoutesLayer() {
+    List<Polyline> polylines = [];
+    
+    // Define colors for different evacuation routes
+    final routeColors = [
+      const Color(0xFF38FF9C), // Green
+      const Color(0xFF00D4FF), // Cyan
+      const Color(0xFFFFB020), // Orange
+      const Color(0xFF9C27B0), // Purple
+    ];
+    
+    for (int i = 0; i < evacuationRoutes.length; i++) {
+      final route = evacuationRoutes[i];
+      if (route.length > 1) {
+        polylines.add(
+          Polyline(
+            points: route,
+            strokeWidth: 5,
+            color: routeColors[i % routeColors.length],
+          ),
+        );
+      }
+    }
+    
+    return PolylineLayer(polylines: polylines);
+  }
+
+  Widget _cbrnDangerZonesLayer() {
+    List<CircleMarker> circles = [];
+    
+    for (final hotspot in cbrnHotspots) {
+      final color = _getColorForCBRNType(hotspot.type);
+      
+      circles.add(
+        CircleMarker(
+          point: hotspot.position,
+          radius: hotspot.radius * 111000, // Convert degrees to meters (approximate)
+          color: color.withValues(alpha: 0.2),
+          borderColor: color.withValues(alpha: 0.6),
+          borderStrokeWidth: 2,
+          useRadiusInMeter: true,
+        ),
+      );
+    }
+    
+    if (circles.isEmpty) return const SizedBox.shrink();
+    return CircleLayer(circles: circles);
+  }
+
+  Widget _evacuationPointsLayer() {
+    List<Marker> markers = [];
+    final pointColors = [
+      const Color(0xFF38FF9C), // Green
+      const Color(0xFF00D4FF), // Cyan
+      const Color(0xFFFFB020), // Orange
+      const Color(0xFF9C27B0), // Purple
+    ];
+    
+    for (int i = 0; i < safeEvacuationPoints.length && i < 4; i++) {
+      final point = safeEvacuationPoints[i];
+      final color = pointColors[i % pointColors.length];
+      markers.add(
+        Marker(
+          point: point,
+          width: 48,
+          height: 48,
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 4),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.6),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.exit_to_app,
+              color: Colors.black,
+              size: 28,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
   }
 
   Widget _currentLocationMarker() {
@@ -766,12 +1387,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
           ),
           const SizedBox(height: 6),
           _mapToggle(
-            label: 'Routes: ${showRoutes ? 'ON' : 'OFF'}',
-            active: showRoutes,
-            onTap: () => setState(() => showRoutes = !showRoutes),
-          ),
-          const SizedBox(height: 6),
-          _mapToggle(
             label: 'Geofences: ${showGeofences ? 'ON' : 'OFF'}',
             active: showGeofences,
             onTap: () => setState(() => showGeofences = !showGeofences),
@@ -922,6 +1537,48 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
               ),
               const SizedBox(height: 16),
               _panel(
+                title: 'Active Substances',
+                child: cbrnHotspots.isEmpty
+                    ? const Text('No substances detected', style: TextStyle(fontSize: 12, color: Color(0xFF7C8B85)))
+                    : Column(
+                        children: cbrnHotspots.take(5).map((hotspot) => _SubstanceRow(hotspot: hotspot)).toList(),
+                      ),
+              ),
+              const SizedBox(height: 16),
+              _panel(
+                title: 'Detection Settings',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Detection Radius: ${(detectionRadius * 100000).toStringAsFixed(0)} meters',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF38FF9C)),
+                    ),
+                    const SizedBox(height: 8),
+                    Slider(
+                      value: detectionRadius * 100000,
+                      min: 50,
+                      max: 500,
+                      divisions: 9,
+                      label: '${(detectionRadius * 100000).toStringAsFixed(0)}m',
+                      onChanged: (value) {
+                        setState(() {
+                          detectionRadius = value / 100000;
+                        });
+                      },
+                      activeColor: const Color(0xFF38FF9C),
+                      inactiveColor: const Color(0xFF1C2A24),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Substances are detected only along drone flight paths',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF7C8B85)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _panel(
                 title: 'Data Export',
                 child: Row(
                   children: [
@@ -980,17 +1637,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
         'status': d.status,
         'battery': d.battery,
       }).toList(),
-      'hazardousZones': hazardousZones.map((z) => {
-        'name': z.name,
-        'center': {
-          'latitude': z.center.latitude,
-          'longitude': z.center.longitude,
-        },
-        'radiusKm': z.radiusKm,
-        'severity': z.severity,
-        'substanceType': z.substanceType,
-        'detected': z.detected,
-      }).toList(),
       'incidents': incidentMarkers.map((i) => {
         'id': i.id,
         'position': {
@@ -1046,11 +1692,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     // Write drones
     for (var drone in drones) {
       buffer.writeln('Drone,${drone.id},${drone.status},"${drone.name}",,${drone.position.latitude},${drone.position.longitude},Battery: ${drone.battery}%');
-    }
-
-    // Write hazardous zones
-    for (var zone in hazardousZones) {
-      buffer.writeln('HazardousZone,${zone.name.hashCode},${zone.severity},"${zone.name}",,${zone.center.latitude},${zone.center.longitude},Radius: ${zone.radiusKm}km, Substance: ${zone.substanceType}');
     }
 
     // Write incidents
@@ -1111,20 +1752,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     );
     setState(() {
       alertTimelineData.insert(0, alert);
-    });
-
-    // Create hazardous zone based on severity
-    final zone = HazardousZone(
-      name: 'Incident Zone ${incidentMarkers.length}',
-      center: position,
-      radiusKm: _getRadiusForSeverity(incidentSeverity),
-      severity: incidentSeverity,
-      substanceType: _getSubstanceTypeForSeverity(incidentSeverity),
-      detected: true,
-    );
-
-    setState(() {
-      hazardousZones.add(zone);
     });
 
     // Turn off incident mode after adding
@@ -1224,97 +1851,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
     );
   }
 
-  Widget _hazardousZonesLayer() {
-    List<Marker> markers = [];
-
-    // Add red zone (dangerous) - critical
-    if (redZone != null) {
-      markers.add(
-        Marker(
-          point: redZone!.center,
-          width: 150,
-          height: 150,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFF4D4F).withOpacity(redZone!.detected ? 0.6 : 0.2),
-              border: Border.all(
-                color: const Color(0xFFFF4D4F),
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Add green zone (safe)
-    if (greenZone != null) {
-      markers.add(
-        Marker(
-          point: greenZone!.center,
-          width: 150,
-          height: 150,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF38FF9C).withOpacity(greenZone!.detected ? 0.6 : 0.2),
-              border: Border.all(
-                color: const Color(0xFF38FF9C),
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Add low risk zone (yellow) - low risk
-    if (lowRiskZone != null) {
-      markers.add(
-        Marker(
-          point: lowRiskZone!.center,
-          width: 150,
-          height: 150,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFFB020).withOpacity(lowRiskZone!.detected ? 0.6 : 0.2),
-              border: Border.all(
-                color: const Color(0xFFFFB020),
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Add high risk zone (orange) - high risk
-    if (mediumRiskZone != null) {
-      markers.add(
-        Marker(
-          point: mediumRiskZone!.center,
-          width: 150,
-          height: 150,
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFFF7A45).withOpacity(mediumRiskZone!.detected ? 0.6 : 0.2),
-              border: Border.all(
-                color: const Color(0xFFFF7A45),
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (markers.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(markers: markers);
-  }
-
   Widget _incidentMarkersLayer() {
     List<Marker> markers = [];
 
@@ -1351,6 +1887,178 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
 
     if (markers.isEmpty) return const SizedBox.shrink();
     return MarkerLayer(markers: markers);
+  }
+
+  Widget _cbrnHotspotsLayer() {
+    List<Marker> markers = [];
+    
+    for (final hotspot in cbrnHotspots) {
+      final color = _getColorForCBRNType(hotspot.type);
+      final icon = _getIconForCBRNType(hotspot.type);
+      
+      markers.add(
+        Marker(
+          point: hotspot.position,
+          width: 50,
+          height: 50,
+          child: GestureDetector(
+            onTap: () {
+              // Show hotspot details
+              _showCBRNHotspotDialog(hotspot);
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Pulsing effect for critical severity
+                if (hotspot.severity == 'critical')
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withOpacity(0.3),
+                      border: Border.all(color: color, width: 2),
+                    ),
+                  ),
+                // Main marker
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: color.withOpacity(0.5), blurRadius: 12, offset: const Offset(0, 4)),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                // Severity indicator
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: hotspot.severity == 'critical' 
+                          ? const Color(0xFFFF4D4F)
+                          : hotspot.severity == 'high'
+                              ? const Color(0xFFFFB020)
+                              : const Color(0xFF38FF9C),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
+    if (markers.isEmpty) return const SizedBox.shrink();
+    return MarkerLayer(markers: markers);
+  }
+
+  void _showCBRNHotspotDialog(CBRNHotspot hotspot) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF101915),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _getColorForCBRNType(hotspot.type),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(_getIconForCBRNType(hotspot.type), color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hotspot.name,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  Text(
+                    hotspot.type,
+                    style: TextStyle(color: _getColorForCBRNType(hotspot.type), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCBRNDetailRow('Severity', hotspot.severity.toUpperCase(), _getColorForSeverity(hotspot.severity)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Detected By', hotspot.detectedBy, const Color(0xFF00D4FF)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Detection Time', _formatDateTime(hotspot.detectedTime), const Color(0xFF7C8B85)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Detected Value', '${hotspot.detectedValue.toStringAsFixed(2)} ${hotspot.unit}', _getColorForCBRNType(hotspot.type)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Threshold', '${hotspot.threshold.toStringAsFixed(2)} ${hotspot.unit}', const Color(0xFF7C8B85)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Status', hotspot.detectedValue >= hotspot.threshold ? 'ABOVE THRESHOLD' : 'BELOW THRESHOLD', hotspot.detectedValue >= hotspot.threshold ? const Color(0xFFFF4D4F) : const Color(0xFF38FF9C)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Radius', '${(hotspot.radius * 100000).toInt()} m', const Color(0xFF7C8B85)),
+            const SizedBox(height: 8),
+            _buildCBRNDetailRow('Position', '${hotspot.position.latitude.toStringAsFixed(6)}, ${hotspot.position.longitude.toStringAsFixed(6)}', const Color(0xFF7C8B85)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF00D4FF))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Focus on hotspot
+              mapController.move(hotspot.position, 18.0);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF38FF9C)),
+            child: const Text('Focus', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCBRNDetailRow(String label, String value, Color valueColor) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFF7C8B85), fontSize: 12),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(color: valueColor, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
   }
 
   void _showIncidentDetails(IncidentMarker incident) {
@@ -1415,7 +2123,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
               setState(() {
                 incidentMarkers.removeWhere((i) => i.id == incident.id);
                 alertTimelineData.removeWhere((a) => a.id == incident.id);
-                hazardousZones.removeWhere((z) => z.name.contains('Incident Zone'));
               });
               Navigator.pop(context);
             },
@@ -1557,24 +2264,101 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
-class HazardousZone {
-  final String name;
-  final LatLng center;
-  final double radiusKm;
-  final String severity;
-  final String substanceType;
-  bool detected;
-  final Set<String> detectedByDrones;
+class _SubstanceRow extends StatelessWidget {
+  final CBRNHotspot hotspot;
+  const _SubstanceRow({required this.hotspot});
 
-  HazardousZone({
-    required this.name,
-    required this.center,
-    required this.radiusKm,
-    required this.severity,
-    required this.substanceType,
-    this.detected = false,
-    Set<String>? detectedByDrones,
-  }) : detectedByDrones = detectedByDrones ?? {};
+  Color _getColorForCBRNType(String type) {
+    switch (type) {
+      case 'Chemical':
+        return const Color(0xFFFFB020); // Orange
+      case 'Biological':
+        return const Color(0xFF9C27B0); // Purple
+      case 'Radiological':
+        return const Color(0xFF00D4FF); // Cyan
+      case 'Nuclear':
+        return const Color(0xFFFF4D4F); // Red
+      default:
+        return const Color(0xFF7C8B85); // Gray
+    }
+  }
+
+  Color _getColorForSeverity(String severity) {
+    switch (severity) {
+      case 'critical':
+        return const Color(0xFFFF4D4F);
+      case 'high':
+        return const Color(0xFFFF7A45);
+      case 'medium':
+        return const Color(0xFFFFB020);
+      case 'low':
+        return const Color(0xFF2F80ED);
+      default:
+        return const Color(0xFF38FF9C);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typeColor = _getColorForCBRNType(hotspot.type);
+    final severityColor = _getColorForSeverity(hotspot.severity);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: typeColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hotspot.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE6F4EE),
+                  ),
+                ),
+                Text(
+                  '${hotspot.type} · ${(hotspot.radius * 111000).toInt()}m',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: typeColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: severityColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: severityColor, width: 1),
+            ),
+            child: Text(
+              hotspot.severity.toUpperCase(),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: severityColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class IncidentMarker {

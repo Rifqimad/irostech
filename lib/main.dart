@@ -593,22 +593,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 : 'Sync: Online',
           ),
           const SizedBox(width: 12),
-          DropdownButton<String>(
-            value: role,
-            dropdownColor: const Color(0xFF101915),
-            items: const [
-              DropdownMenuItem(
-                value: 'commander',
-                child: Text('Role: Commander'),
-              ),
-              DropdownMenuItem(value: 'analyst', child: Text('Role: Analyst')),
-              DropdownMenuItem(
-                value: 'field',
-                child: Text('Role: Field Operator'),
-              ),
-            ],
-            onChanged: (value) => setState(() => role = value ?? 'commander'),
-          ),
           const SizedBox(width: 16),
           // User name display
           if (_firebaseService.currentUser != null)
