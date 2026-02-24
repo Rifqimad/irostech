@@ -1,0 +1,21 @@
+#!/bin/bash
+# Optimized web build script for better performance
+
+echo "🚀 Building optimized web version..."
+
+# Clean previous builds
+flutter clean
+flutter pub get
+
+# Build with optimizations
+flutter build web \
+  --release \
+  --pwa-strategy offline-first \
+  --tree-shake-icons
+
+echo "✅ Build complete! Output: build/web/"
+echo "📦 Bundle size:"
+du -sh build/web
+echo ""
+echo "📊 Largest files:"
+find build/web -type f -size +100k -exec ls -lh {} \; | awk '{print $5, $9}' | sort -rh | head -10
