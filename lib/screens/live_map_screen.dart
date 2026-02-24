@@ -1018,7 +1018,6 @@ class _LiveMapScreenState extends State<LiveMapScreen> with AutomaticKeepAliveCl
             children: [
               _tileLayer(),
               if (showTrails) _pathLayer(),
-              if (cbrnHotspots.isNotEmpty) _cbrnDangerZonesLayer(),
               if (currentLocation != null) _currentLocationMarker(),
               if (cbrnHotspots.isNotEmpty) _cbrnHotspotsLayer(),
               _droneMarkers(),

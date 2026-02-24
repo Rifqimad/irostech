@@ -197,7 +197,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         ),
         const SizedBox(height: 8),
         const Text(
-          'Join CBRN4 Response System',
+          'Join CBRN Response System',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,

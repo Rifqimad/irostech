@@ -254,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             colors: [Color(0xFF38FF9C), Color(0xFF2DD484)],
           ).createShader(bounds),
           child: const Text(
-            'CBRN4',
+            'CBRN',
             style: TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.w800,
