@@ -11,7 +11,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -132,9 +133,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     }
 
     try {
-      await _firebaseService.resetPassword(
-        email: _emailController.text.trim(),
-      );
+      await _firebaseService.resetPassword(email: _emailController.text.trim());
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -172,11 +171,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A0F0D),
-              Color(0xFF0D1A16),
-              Color(0xFF0A0F0D),
-            ],
+            colors: [Color(0xFF0A0F0D), Color(0xFF0D1A16), Color(0xFF0A0F0D)],
           ),
         ),
         child: SafeArea(
@@ -218,36 +213,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Widget _buildLogoSection() {
     return Column(
       children: [
-        // Animated logo container
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF38FF9C),
-                Color(0xFF2DD484),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF38FF9C).withOpacity(0.3),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.security_rounded,
-            color: Color(0xFF0A0F0D),
-            size: 50,
-          ),
+        // Logo image
+        Image.asset(
+          'assets/cbrn-logo.svg',
+          width: 120,
+          height: 120,
         ),
         const SizedBox(height: 24),
-        
+
         // Title with gradient text
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
@@ -319,10 +292,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           const SizedBox(height: 8),
           const Text(
             'Sign in to continue',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF7C8B85),
-            ),
+            style: TextStyle(fontSize: 14, color: Color(0xFF7C8B85)),
           ),
           const SizedBox(height: 32),
 
@@ -355,10 +325,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   ),
                   const Text(
                     'Remember me',
-                    style: TextStyle(
-                      color: Color(0xFF7C8B85),
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Color(0xFF7C8B85), fontSize: 13),
                   ),
                 ],
               ),
@@ -416,17 +383,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: const Color(0xFF1C2A24),
-                width: 1,
-              ),
+              borderSide: BorderSide(color: const Color(0xFF1C2A24), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF38FF9C),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF38FF9C), width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -451,7 +412,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             hintText: 'Enter your email',
             hintStyle: const TextStyle(color: Color(0xFF7C8B85)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -493,17 +457,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: const Color(0xFF1C2A24),
-                width: 1,
-              ),
+              borderSide: BorderSide(color: const Color(0xFF1C2A24), width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF38FF9C),
-                width: 2,
-              ),
+              borderSide: const BorderSide(color: Color(0xFF38FF9C), width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -528,7 +486,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: const Color(0xFF7C8B85),
               ),
               onPressed: () {
@@ -537,7 +497,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             hintText: 'Enter your password',
             hintStyle: const TextStyle(color: Color(0xFF7C8B85)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -609,10 +572,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       children: [
         const Text(
           "Don't have an account? ",
-          style: TextStyle(
-            color: Color(0xFF7C8B85),
-            fontSize: 14,
-          ),
+          style: TextStyle(color: Color(0xFF7C8B85), fontSize: 14),
         ),
         TextButton(
           onPressed: () {

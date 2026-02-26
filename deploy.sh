@@ -18,16 +18,16 @@ echo ""
 # FTP Configuration - From Niagahoster Panel
 FTP_HOST="153.92.9.252"
 FTP_USER="u739922356"
+FTP_PASS="Hexacopter12345!"
 REMOTE_PATH="/public_html/pusatoleh-olehbandung"
 LOCAL_PATH="build/web"
 
 # Cek apakah lftp terinstall
 if command -v lftp &> /dev/null; then
     echo "Using lftp for upload..."
-    echo "Password will be requested..."
     
     # Upload dengan lftp (lebih cepat & reliable)
-    lftp -u "$FTP_USER" ftp://"$FTP_HOST" <<EOF
+    lftp -u "$FTP_USER,$FTP_PASS" ftp://"$FTP_HOST" <<EOF
 set ftp:ssl-allow no
 mirror --reverse --delete --verbose --exclude-glob .DS_Store "$LOCAL_PATH" "$REMOTE_PATH"
 bye

@@ -13,6 +13,12 @@ flutter build web \
   --pwa-strategy offline-first \
   --tree-shake-icons
 
+# Remove unnecessary CanvasKit files if they exist (saves ~20MB)
+if [ -d "build/web/canvaskit" ]; then
+  echo "🧹 Removing CanvasKit files (not needed for HTML renderer)..."
+  rm -rf build/web/canvaskit
+fi
+
 echo "✅ Build complete! Output: build/web/"
 echo "📦 Bundle size:"
 du -sh build/web

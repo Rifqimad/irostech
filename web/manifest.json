@@ -1,11 +1,11 @@
 {
-    "name": "cbrn4",
-    "short_name": "cbrn4",
+    "name": "CBRN Tactical Command System",
+    "short_name": "CBRN",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0A0F0D",
+    "theme_color": "#38FF9C",
+    "description": "Chemical, Biological, Radiological, Nuclear Response System",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

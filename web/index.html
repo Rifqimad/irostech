@@ -18,7 +18,23 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="CBRN Tactical Command System - Chemical, Biological, Radiological, Nuclear Response System">
+
+  <!-- Open Graph / WhatsApp Meta Tags -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CBRN Tactical Command System">
+  <meta property="og:description" content="Chemical, Biological, Radiological, Nuclear Response System">
+  <meta property="og:image" content="https://化学生物放射性核.irostech.com/pusatoleh-olehbandung/og-image.png">
+  <meta property="og:url" content="https://化学生物放射性核.irostech.com/pusatoleh-olehbandung/">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <!-- Twitter Card Meta Tags (also used by some apps) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CBRN Tactical Command System">
+  <meta name="twitter:description" content="Chemical, Biological, Radiological, Nuclear Response System">
+  <meta name="twitter:image" content="https://化学生物放射性核.irostech.com/pusatoleh-olehbandung/og-image.png">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,10 +45,81 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>cbrn4</title>
+  <title>CBRN Tactical Command System</title>
   <link rel="manifest" href="manifest.json">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #0A0F0D 0%, #0D1A16 50%, #0A0F0D 100%);
+      overflow: hidden;
+    }
+    
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0A0F0D 0%, #0D1A16 50%, #0A0F0D 100%);
+      z-index: 9999;
+    }
+    
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(56, 255, 156, 0.2);
+      border-top-color: #38FF9C;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    #loading-text {
+      color: #38FF9C;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      font-size: 14px;
+      margin-top: 20px;
+      opacity: 0.8;
+    }
+  </style>
 </head>
 <body>
+  <!-- Loading indicator -->
+  <div id="loading">
+    <div class="loader"></div>
+    <div id="loading-text">Loading CBRN System...</div>
+  </div>
+  
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Hide loading screen when Flutter is ready
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        var loading = document.getElementById('loading');
+        if (loading) {
+          loading.style.opacity = '0';
+          loading.style.transition = 'opacity 0.3s ease-out';
+          setTimeout(function() {
+            loading.style.display = 'none';
+          }, 300);
+        }
+      }, 500);
+    });
+    
+    // Alternative: Hide immediately if Flutter renders
+    window.addEventListener('flutter-web-auto-detect', function() {
+      var loading = document.getElementById('loading');
+      if (loading) loading.style.display = 'none';
+    });
+  </script>
 </body>
 </html>
